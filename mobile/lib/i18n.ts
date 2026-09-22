@@ -1,0 +1,434 @@
+// Telugu, Hindi and English from launch (spec S9). `en` is the source of
+// truth; `te` and `hi` are typed Dict, so a missing key fails the typecheck.
+
+import { useCallback } from "react";
+import { useSettings } from "./settings";
+
+export const locales = ["en", "te", "hi"] as const;
+export type Locale = (typeof locales)[number];
+
+export const localeNames: Record<Locale, string> = {
+  en: "English",
+  te: "తెలుగు",
+  hi: "हिन्दी",
+};
+
+const en = {
+  "nav.home": "Todu",
+  "nav.circle": "Your circle",
+  "nav.profile": "Medical profile",
+  "nav.settings": "Settings",
+
+  "sos.title": "Help is one tap away",
+  "sos.hint": "Hold the button for a moment. You then have {n} seconds to cancel.",
+  "sos.hold": "Hold to send SOS",
+  "sos.holdA11y": "Send emergency SOS. Press and hold.",
+  "sos.sendingIn": "Sending in",
+  "sos.cancel": "Cancel",
+  "sos.pinPrompt": "Enter your PIN to cancel",
+  "sos.pinWrong": "Not accepted. Still counting.",
+  "sos.pinSubmit": "Confirm",
+  "sos.cancelled": "Cancelled",
+  "sos.cancelledBody": "No alert was sent.",
+  "sos.done": "Done",
+  "sos.active": "SOS active",
+  "sos.ladder": "What reached whom",
+  "sos.running": "Working through each step",
+  "sos.call112": "Call 112",
+  "sos.flash": "Flash screen",
+  "sos.flashStop": "Tap anywhere to stop the flashing",
+  "sos.stopSiren": "Stop siren",
+  "sos.safe": "I am safe",
+  "sos.safeTitle": "Marked safe",
+  "sos.safeBody": "The alert has been stood down.",
+  "sos.noContacts": "Add a contact so the SMS step has someone to reach.",
+  "sos.disclaimer":
+    "Todu is not a substitute for emergency services. In an emergency, call 112.",
+  "sos.queued": "{n} alert(s) saved on this phone, waiting for a connection.",
+
+  "rung.realtime": "Live broadcast",
+  "rung.sms": "SMS to contacts",
+  "rung.dial112": "Call 112",
+  "rung.ble": "Bluetooth relay",
+  "rung.beacon": "Siren and vibration",
+
+  "d.serverSent": "Sent to the server",
+  "d.noData": "No mobile data or Wi-Fi. Saved to send later.",
+  "d.unconfigured": "No server in this build",
+  "d.signedOut": "Not signed in. Saved to send later.",
+  "d.rejected": "The server refused it. Saved to retry.",
+  "d.smsSent": "Message sent",
+  "d.smsClosed": "Message screen closed without sending",
+  "d.smsNoContacts": "No contacts saved",
+  "d.smsUnavailable": "This phone cannot send SMS",
+  "d.covert": "Skipped to keep the screen discreet",
+  "d.dialReady":
+    "Ready. Tap Call 112. Android shares your location with 112 automatically.",
+  "d.bleOff": "Not available in this build",
+  "d.silent": "Off because silent mode is on",
+  "d.sirenOn": "Siren on",
+  "d.sirenFailed": "Siren could not start",
+  "d.hapticsOn": "vibration on",
+  "d.torchOff": "no torch in this build",
+  "d.noLocation": "Location unavailable",
+
+  "circle.intro": "These people get your SOS by SMS. Keep at least two.",
+  "circle.name": "Name",
+  "circle.phone": "Mobile number",
+  "circle.add": "Add contact",
+  "circle.remove": "Remove",
+  "circle.empty": "No contacts yet.",
+  "circle.invalid": "Enter a name and a valid mobile number.",
+  "circle.duplicate": "That number is already in your circle.",
+
+  "profile.intro":
+    "Shown to responders only during an active SOS. Also copy it into your phone Medical ID so it shows on the lock screen.",
+  "profile.name": "Your name",
+  "profile.blood": "Blood group",
+  "profile.allergies": "Allergies",
+  "profile.meds": "Medications",
+  "profile.save": "Save",
+  "profile.saved": "Saved on this phone",
+  "profile.synced": "Saved and synced",
+
+  "settings.language": "Language",
+  "settings.silent": "Silent mode",
+  "settings.silentHint":
+    "No siren and no screen flash during an SOS. Use it when noise could put you in more danger.",
+  "settings.countdown": "Countdown",
+  "settings.seconds": "{n} s",
+  "settings.pins": "PINs",
+  "settings.pinsHint":
+    "With a cancel PIN, only that PIN stops a countdown. The duress PIN looks exactly like a cancel but quietly sends the alert.",
+  "settings.cancelPin": "Cancel PIN",
+  "settings.duressPin": "Duress PIN",
+  "settings.savePins": "Save PINs",
+  "settings.pinsSaved": "PINs saved",
+  "pin.format": "PINs must be 4 to 6 digits.",
+  "pin.duressNeedsCancel": "Set a cancel PIN before a duress PIN.",
+  "pin.same": "The duress PIN must be different from the cancel PIN.",
+  "settings.health": "Protection check",
+  "health.location": "Location",
+  "health.background": "Location in background",
+  "health.notifications": "Notifications",
+  "health.queue": "Alerts waiting to send",
+  "health.granted": "On",
+  "health.missing": "Off",
+  "health.fix": "Turn on",
+  "health.oem":
+    "{brand} phones often stop apps in the background. Follow the guide to allow autostart and unrestricted battery for Todu.",
+  "health.oemOpen": "Open guide",
+  "settings.account": "Account",
+  "account.unconfigured":
+    "This build has no server. SMS, 112 and the siren still work.",
+  "account.phone": "Mobile number",
+  "account.sendCode": "Send code",
+  "account.code": "Code from SMS",
+  "account.verify": "Verify",
+  "account.signedIn": "Signed in",
+  "account.signOut": "Sign out",
+  "account.error": "That did not work: {msg}",
+  "common.invalidPhone": "Enter a valid mobile number.",
+  "sms.body": "{name} triggered an emergency SOS on Todu. {where} Call them now, and call 112 if you cannot reach them.",
+  "sms.where": "Location: {url}",
+  "sms.noWhere": "Their location is not available.",
+  "sms.someone": "Someone in your circle",
+  "track.title": "Todu SOS active",
+  "track.body": "Sharing your location with your circle",
+  "settings.covertHint": "After a duress PIN, stop the hidden alert by long pressing the title on the SOS screen for three seconds and entering your cancel PIN.",
+  "sos.covertPin": "PIN",
+  "health.locationWhy": "So your SOS can say where you are.",
+  "health.backgroundWhy": "So your circle keeps seeing where you are after the screen locks during an SOS.",
+  "health.notificationsWhy": "So you hear it when someone in your circle needs help.",
+} as const;
+
+export type Key = keyof typeof en;
+export type Dict = Record<Key, string>;
+
+const te: Dict = {
+  "nav.home": "Todu",
+  "nav.circle": "మీ సర్కిల్",
+  "nav.profile": "వైద్య ప్రొఫైల్",
+  "nav.settings": "సెట్టింగ్స్",
+
+  "sos.title": "సహాయం ఒక్క ట్యాప్ దూరంలో",
+  "sos.hint":
+    "బటన్‌ను కొద్దిసేపు నొక్కి పట్టుకోండి. ఆ తర్వాత రద్దు చేయడానికి మీకు {n} సెకన్లు ఉంటాయి.",
+  "sos.hold": "SOS పంపడానికి నొక్కి పట్టుకోండి",
+  "sos.holdA11y": "అత్యవసర SOS పంపండి. నొక్కి పట్టుకోండి.",
+  "sos.sendingIn": "పంపడానికి",
+  "sos.cancel": "రద్దు చేయి",
+  "sos.pinPrompt": "రద్దు చేయడానికి మీ పిన్ నమోదు చేయండి",
+  "sos.pinWrong": "అంగీకరించలేదు. కౌంట్‌డౌన్ కొనసాగుతోంది.",
+  "sos.pinSubmit": "నిర్ధారించు",
+  "sos.cancelled": "రద్దు చేయబడింది",
+  "sos.cancelledBody": "ఏ హెచ్చరికా పంపలేదు.",
+  "sos.done": "సరే",
+  "sos.active": "SOS చురుకుగా ఉంది",
+  "sos.ladder": "ఏది ఎవరికి చేరింది",
+  "sos.running": "ఒక్కో దశను ప్రయత్నిస్తోంది",
+  "sos.call112": "112కి కాల్ చేయి",
+  "sos.flash": "స్క్రీన్ ఫ్లాష్",
+  "sos.flashStop": "ఫ్లాష్ ఆపడానికి ఎక్కడైనా ట్యాప్ చేయండి",
+  "sos.stopSiren": "సైరన్ ఆపు",
+  "sos.safe": "నేను సురక్షితంగా ఉన్నాను",
+  "sos.safeTitle": "సురక్షితంగా ఉన్నట్టు గుర్తించారు",
+  "sos.safeBody": "హెచ్చరిక నిలిపివేయబడింది.",
+  "sos.noContacts": "SMS దశకు ఎవరైనా ఉండేలా ఒక కాంటాక్ట్‌ను జోడించండి.",
+  "sos.disclaimer":
+    "అత్యవసర సేవలకు Todu ప్రత్యామ్నాయం కాదు. అత్యవసర పరిస్థితిలో 112కి కాల్ చేయండి.",
+  "sos.queued":
+    "{n} హెచ్చరికలు ఈ ఫోన్‌లో నిల్వ ఉన్నాయి, కనెక్షన్ కోసం వేచి ఉన్నాయి.",
+
+  "rung.realtime": "ప్రత్యక్ష ప్రసారం",
+  "rung.sms": "కాంటాక్ట్‌లకు SMS",
+  "rung.dial112": "112కి కాల్",
+  "rung.ble": "బ్లూటూత్ రిలే",
+  "rung.beacon": "సైరన్, వైబ్రేషన్",
+
+  "d.serverSent": "సర్వర్‌కు పంపబడింది",
+  "d.noData": "మొబైల్ డేటా లేదా Wi-Fi లేదు. తర్వాత పంపడానికి నిల్వ చేయబడింది.",
+  "d.unconfigured": "ఈ బిల్డ్‌లో సర్వర్ లేదు",
+  "d.signedOut": "సైన్ ఇన్ కాలేదు. తర్వాత పంపడానికి నిల్వ చేయబడింది.",
+  "d.rejected": "సర్వర్ తిరస్కరించింది. మళ్లీ ప్రయత్నించడానికి నిల్వ చేయబడింది.",
+  "d.smsSent": "సందేశం పంపబడింది",
+  "d.smsClosed": "పంపకుండానే సందేశ స్క్రీన్ మూసివేయబడింది",
+  "d.smsNoContacts": "కాంటాక్ట్‌లు లేవు",
+  "d.smsUnavailable": "ఈ ఫోన్ SMS పంపలేదు",
+  "d.covert": "స్క్రీన్ రహస్యంగా ఉంచడానికి దాటవేయబడింది",
+  "d.dialReady":
+    "సిద్ధం. 112కి కాల్ చేయి నొక్కండి. ఆండ్రాయిడ్ మీ లొకేషన్‌ను 112కి స్వయంగా పంపుతుంది.",
+  "d.bleOff": "ఈ బిల్డ్‌లో అందుబాటులో లేదు",
+  "d.silent": "సైలెంట్ మోడ్ ఆన్‌లో ఉన్నందున ఆఫ్",
+  "d.sirenOn": "సైరన్ ఆన్",
+  "d.sirenFailed": "సైరన్ ప్రారంభం కాలేదు",
+  "d.hapticsOn": "వైబ్రేషన్ ఆన్",
+  "d.torchOff": "ఈ బిల్డ్‌లో టార్చ్ లేదు",
+  "d.noLocation": "లొకేషన్ అందుబాటులో లేదు",
+
+  "circle.intro": "ఈ వ్యక్తులకు మీ SOS SMS ద్వారా వెళ్తుంది. కనీసం ఇద్దరిని ఉంచండి.",
+  "circle.name": "పేరు",
+  "circle.phone": "మొబైల్ నంబర్",
+  "circle.add": "కాంటాక్ట్ జోడించు",
+  "circle.remove": "తొలగించు",
+  "circle.empty": "ఇంకా కాంటాక్ట్‌లు లేవు.",
+  "circle.invalid": "పేరు మరియు సరైన మొబైల్ నంబర్ నమోదు చేయండి.",
+  "circle.duplicate": "ఈ నంబర్ ఇప్పటికే మీ సర్కిల్‌లో ఉంది.",
+
+  "profile.intro":
+    "చురుకైన SOS సమయంలో మాత్రమే స్పందించేవారికి కనిపిస్తుంది. లాక్ స్క్రీన్‌పై కనిపించేలా మీ ఫోన్ Medical IDలో కూడా నమోదు చేయండి.",
+  "profile.name": "మీ పేరు",
+  "profile.blood": "రక్తం గ్రూప్",
+  "profile.allergies": "అలర్జీలు",
+  "profile.meds": "మందులు",
+  "profile.save": "సేవ్ చేయి",
+  "profile.saved": "ఈ ఫోన్‌లో సేవ్ చేయబడింది",
+  "profile.synced": "సేవ్ చేసి సింక్ చేయబడింది",
+
+  "settings.language": "భాష",
+  "settings.silent": "సైలెంట్ మోడ్",
+  "settings.silentHint":
+    "SOS సమయంలో సైరన్, స్క్రీన్ ఫ్లాష్ ఉండవు. శబ్దం మిమ్మల్ని మరింత ప్రమాదంలో పడేస్తుందనుకుంటే వాడండి.",
+  "settings.countdown": "కౌంట్‌డౌన్",
+  "settings.seconds": "{n} సె",
+  "settings.pins": "పిన్‌లు",
+  "settings.pinsHint":
+    "క్యాన్సిల్ పిన్ ఉంటే, ఆ పిన్ మాత్రమే కౌంట్‌డౌన్‌ను ఆపుతుంది. డ్యురెస్ పిన్ అచ్చం రద్దు లాగే కనిపిస్తుంది కానీ నిశ్శబ్దంగా హెచ్చరిక పంపుతుంది.",
+  "settings.cancelPin": "క్యాన్సిల్ పిన్",
+  "settings.duressPin": "డ్యురెస్ పిన్",
+  "settings.savePins": "పిన్‌లు సేవ్ చేయి",
+  "settings.pinsSaved": "పిన్‌లు సేవ్ అయ్యాయి",
+  "pin.format": "పిన్‌లో 4 నుంచి 6 అంకెలు ఉండాలి.",
+  "pin.duressNeedsCancel": "డ్యురెస్ పిన్‌కు ముందు క్యాన్సిల్ పిన్ సెట్ చేయండి.",
+  "pin.same": "డ్యురెస్ పిన్ క్యాన్సిల్ పిన్‌కు భిన్నంగా ఉండాలి.",
+  "settings.health": "రక్షణ తనిఖీ",
+  "health.location": "లొకేషన్",
+  "health.background": "బ్యాక్‌గ్రౌండ్‌లో లొకేషన్",
+  "health.notifications": "నోటిఫికేషన్లు",
+  "health.queue": "పంపడానికి వేచి ఉన్న హెచ్చరికలు",
+  "health.granted": "ఆన్",
+  "health.missing": "ఆఫ్",
+  "health.fix": "ఆన్ చేయి",
+  "health.oem":
+    "{brand} ఫోన్లు తరచుగా బ్యాక్‌గ్రౌండ్ యాప్‌లను ఆపేస్తాయి. Toduకి ఆటోస్టార్ట్, అపరిమిత బ్యాటరీ అనుమతించడానికి గైడ్‌ను అనుసరించండి.",
+  "health.oemOpen": "గైడ్ తెరువు",
+  "settings.account": "ఖాతా",
+  "account.unconfigured":
+    "ఈ బిల్డ్‌లో సర్వర్ లేదు. SMS, 112, సైరన్ అయినా పనిచేస్తాయి.",
+  "account.phone": "మొబైల్ నంబర్",
+  "account.sendCode": "కోడ్ పంపు",
+  "account.code": "SMSలో వచ్చిన కోడ్",
+  "account.verify": "ధృవీకరించు",
+  "account.signedIn": "సైన్ ఇన్ అయ్యారు",
+  "account.signOut": "సైన్ అవుట్",
+  "account.error": "అది పనిచేయలేదు: {msg}",
+  "common.invalidPhone": "సరైన మొబైల్ నంబర్ నమోదు చేయండి.",
+  "sms.body": "{name} Todu లో అత్యవసర SOS పంపారు. {where} వెంటనే వారికి కాల్ చేయండి, వారు అందుబాటులో లేకపోతే 112కి కాల్ చేయండి.",
+  "sms.where": "లొకేషన్: {url}",
+  "sms.noWhere": "వారి లొకేషన్ అందుబాటులో లేదు.",
+  "sms.someone": "మీ సర్కిల్‌లో ఒకరు",
+  "track.title": "Todu SOS చురుకుగా ఉంది",
+  "track.body": "మీ లొకేషన్‌ను మీ సర్కిల్‌తో పంచుకుంటోంది",
+  "settings.covertHint": "డ్యురెస్ పిన్ తర్వాత, SOS స్క్రీన్‌లోని శీర్షికను మూడు సెకన్లు నొక్కి పట్టుకుని మీ క్యాన్సిల్ పిన్ నమోదు చేస్తే రహస్య హెచ్చరిక ఆగుతుంది.",
+  "sos.covertPin": "పిన్",
+  "health.locationWhy": "మీరు ఎక్కడ ఉన్నారో మీ SOS చెప్పగలిగేలా.",
+  "health.backgroundWhy": "SOS సమయంలో స్క్రీన్ లాక్ అయిన తర్వాత కూడా మీ సర్కిల్‌కు మీరు ఎక్కడ ఉన్నారో కనిపిస్తూ ఉండేలా.",
+  "health.notificationsWhy": "మీ సర్కిల్‌లో ఎవరికైనా సహాయం కావాల్సినప్పుడు మీకు తెలిసేలా.",
+};
+
+const hi: Dict = {
+  "nav.home": "Todu",
+  "nav.circle": "आपका सर्कल",
+  "nav.profile": "मेडिकल प्रोफ़ाइल",
+  "nav.settings": "सेटिंग्स",
+
+  "sos.title": "मदद बस एक टैप दूर",
+  "sos.hint":
+    "बटन को एक पल दबाए रखें। उसके बाद रद्द करने के लिए आपके पास {n} सेकंड होंगे।",
+  "sos.hold": "SOS भेजने के लिए दबाए रखें",
+  "sos.holdA11y": "आपातकालीन SOS भेजें। दबाकर रखें।",
+  "sos.sendingIn": "भेजा जाएगा",
+  "sos.cancel": "रद्द करें",
+  "sos.pinPrompt": "रद्द करने के लिए अपना पिन डालें",
+  "sos.pinWrong": "स्वीकार नहीं हुआ। गिनती जारी है।",
+  "sos.pinSubmit": "पुष्टि करें",
+  "sos.cancelled": "रद्द कर दिया गया",
+  "sos.cancelledBody": "कोई चेतावनी नहीं भेजी गई।",
+  "sos.done": "ठीक है",
+  "sos.active": "SOS सक्रिय है",
+  "sos.ladder": "क्या किस तक पहुँचा",
+  "sos.running": "एक-एक कदम आज़माया जा रहा है",
+  "sos.call112": "112 पर कॉल करें",
+  "sos.flash": "स्क्रीन फ़्लैश",
+  "sos.flashStop": "फ़्लैश रोकने के लिए कहीं भी टैप करें",
+  "sos.stopSiren": "सायरन बंद करें",
+  "sos.safe": "मैं सुरक्षित हूँ",
+  "sos.safeTitle": "सुरक्षित चिह्नित",
+  "sos.safeBody": "चेतावनी रोक दी गई है।",
+  "sos.noContacts": "SMS कदम के लिए कोई तो हो, इसलिए एक संपर्क जोड़ें।",
+  "sos.disclaimer":
+    "Todu आपातकालीन सेवाओं का विकल्प नहीं है। आपात स्थिति में 112 पर कॉल करें।",
+  "sos.queued":
+    "{n} चेतावनियाँ इस फ़ोन पर सहेजी हैं, कनेक्शन का इंतज़ार कर रही हैं।",
+
+  "rung.realtime": "लाइव प्रसारण",
+  "rung.sms": "संपर्कों को SMS",
+  "rung.dial112": "112 पर कॉल",
+  "rung.ble": "ब्लूटूथ रिले",
+  "rung.beacon": "सायरन और कंपन",
+
+  "d.serverSent": "सर्वर को भेजा गया",
+  "d.noData": "मोबाइल डेटा या Wi-Fi नहीं। बाद में भेजने के लिए सहेजा गया।",
+  "d.unconfigured": "इस बिल्ड में सर्वर नहीं है",
+  "d.signedOut": "साइन इन नहीं है। बाद में भेजने के लिए सहेजा गया।",
+  "d.rejected": "सर्वर ने अस्वीकार किया। दोबारा कोशिश के लिए सहेजा गया।",
+  "d.smsSent": "संदेश भेजा गया",
+  "d.smsClosed": "संदेश स्क्रीन बिना भेजे बंद हो गई",
+  "d.smsNoContacts": "कोई संपर्क सहेजा नहीं है",
+  "d.smsUnavailable": "यह फ़ोन SMS नहीं भेज सकता",
+  "d.covert": "स्क्रीन को गुप्त रखने के लिए छोड़ा गया",
+  "d.dialReady":
+    "तैयार। 112 पर कॉल करें दबाएँ। एंड्रॉयड आपकी लोकेशन अपने-आप 112 को भेजता है।",
+  "d.bleOff": "इस बिल्ड में उपलब्ध नहीं",
+  "d.silent": "साइलेंट मोड चालू होने से बंद",
+  "d.sirenOn": "सायरन चालू",
+  "d.sirenFailed": "सायरन शुरू नहीं हो सका",
+  "d.hapticsOn": "कंपन चालू",
+  "d.torchOff": "इस बिल्ड में टॉर्च नहीं",
+  "d.noLocation": "लोकेशन उपलब्ध नहीं",
+
+  "circle.intro": "इन लोगों को आपका SOS SMS से मिलता है। कम से कम दो लोग रखें।",
+  "circle.name": "नाम",
+  "circle.phone": "मोबाइल नंबर",
+  "circle.add": "संपर्क जोड़ें",
+  "circle.remove": "हटाएँ",
+  "circle.empty": "अभी कोई संपर्क नहीं।",
+  "circle.invalid": "नाम और सही मोबाइल नंबर डालें।",
+  "circle.duplicate": "यह नंबर पहले से आपके सर्कल में है।",
+
+  "profile.intro":
+    "सिर्फ़ सक्रिय SOS के दौरान रेस्पॉन्डर को दिखता है। लॉक स्क्रीन पर दिखे, इसलिए इसे अपने फ़ोन के Medical ID में भी डालें।",
+  "profile.name": "आपका नाम",
+  "profile.blood": "ब्लड ग्रुप",
+  "profile.allergies": "एलर्जी",
+  "profile.meds": "दवाएँ",
+  "profile.save": "सहेजें",
+  "profile.saved": "इस फ़ोन पर सहेजा गया",
+  "profile.synced": "सहेजा और सिंक किया गया",
+
+  "settings.language": "भाषा",
+  "settings.silent": "साइलेंट मोड",
+  "settings.silentHint":
+    "SOS के दौरान न सायरन, न स्क्रीन फ़्लैश। तब इस्तेमाल करें जब आवाज़ आपको और ख़तरे में डाल सकती हो।",
+  "settings.countdown": "काउंटडाउन",
+  "settings.seconds": "{n} से.",
+  "settings.pins": "पिन",
+  "settings.pinsHint":
+    "कैंसिल पिन हो तो सिर्फ़ वही पिन काउंटडाउन रोकता है। ड्यूरेस पिन बिल्कुल रद्द जैसा दिखता है पर चुपचाप चेतावनी भेज देता है।",
+  "settings.cancelPin": "कैंसिल पिन",
+  "settings.duressPin": "ड्यूरेस पिन",
+  "settings.savePins": "पिन सहेजें",
+  "settings.pinsSaved": "पिन सहेजे गए",
+  "pin.format": "पिन में 4 से 6 अंक होने चाहिए।",
+  "pin.duressNeedsCancel": "ड्यूरेस पिन से पहले कैंसिल पिन सेट करें।",
+  "pin.same": "ड्यूरेस पिन कैंसिल पिन से अलग होना चाहिए।",
+  "settings.health": "सुरक्षा जाँच",
+  "health.location": "लोकेशन",
+  "health.background": "बैकग्राउंड में लोकेशन",
+  "health.notifications": "नोटिफ़िकेशन",
+  "health.queue": "भेजे जाने की प्रतीक्षा में चेतावनियाँ",
+  "health.granted": "चालू",
+  "health.missing": "बंद",
+  "health.fix": "चालू करें",
+  "health.oem":
+    "{brand} फ़ोन अक्सर बैकग्राउंड ऐप बंद कर देते हैं। Todu के लिए ऑटोस्टार्ट और बिना रोक बैटरी की अनुमति देने को गाइड देखें।",
+  "health.oemOpen": "गाइड खोलें",
+  "settings.account": "खाता",
+  "account.unconfigured":
+    "इस बिल्ड में सर्वर नहीं है। SMS, 112 और सायरन फिर भी काम करते हैं।",
+  "account.phone": "मोबाइल नंबर",
+  "account.sendCode": "कोड भेजें",
+  "account.code": "SMS में आया कोड",
+  "account.verify": "पुष्टि करें",
+  "account.signedIn": "साइन इन हैं",
+  "account.signOut": "साइन आउट",
+  "account.error": "यह नहीं हुआ: {msg}",
+  "common.invalidPhone": "सही मोबाइल नंबर डालें।",
+  "sms.body": "{name} ने Todu पर आपातकालीन SOS भेजा है। {where} उन्हें तुरंत कॉल करें, और बात न हो पाए तो 112 पर कॉल करें।",
+  "sms.where": "लोकेशन: {url}",
+  "sms.noWhere": "उनकी लोकेशन उपलब्ध नहीं है।",
+  "sms.someone": "आपके सर्कल का कोई व्यक्ति",
+  "track.title": "Todu SOS सक्रिय है",
+  "track.body": "आपकी लोकेशन आपके सर्कल के साथ साझा हो रही है",
+  "settings.covertHint": "ड्यूरेस पिन के बाद छिपी चेतावनी रोकने के लिए SOS स्क्रीन के शीर्षक को तीन सेकंड दबाए रखें और अपना कैंसिल पिन डालें।",
+  "sos.covertPin": "पिन",
+  "health.locationWhy": "ताकि आपका SOS बता सके कि आप कहाँ हैं।",
+  "health.backgroundWhy": "ताकि SOS के दौरान स्क्रीन लॉक होने के बाद भी आपके सर्कल को आपकी जगह दिखती रहे।",
+  "health.notificationsWhy": "ताकि आपके सर्कल में किसी को मदद चाहिए तो आपको पता चले।",
+};
+
+const dictionaries: Record<Locale, Dict> = { en, te, hi };
+
+export type Translate = (key: Key, vars?: Record<string, string | number>) => string;
+
+export function translate(
+  locale: Locale,
+  key: Key,
+  vars?: Record<string, string | number>,
+): string {
+  let text = dictionaries[locale][key];
+  if (vars) {
+    for (const [name, value] of Object.entries(vars)) {
+      text = text.replaceAll(`{${name}}`, String(value));
+    }
+  }
+  return text;
+}
+
+export function useT(): Translate {
+  const { locale } = useSettings();
+  return useCallback(
+    (key: Key, vars?: Record<string, string | number>) => translate(locale, key, vars),
+    [locale],
+  );
+}

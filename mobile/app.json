@@ -6,15 +6,11 @@
     "orientation": "portrait",
     "scheme": "todu",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "backgroundColor": "#07090c",
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#07090c"
-    },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.todu.client",
@@ -24,15 +20,18 @@
         "NSCameraUsageDescription": "Todu captures photo evidence only while an SOS is active, and only if you enable it.",
         "NSMicrophoneUsageDescription": "Todu records audio evidence only while an SOS is active, and only if you enable it.",
         "NSBluetoothAlwaysUsageDescription": "Todu can relay your alert through nearby Todu devices when there is no mobile network.",
-        "UIBackgroundModes": ["location", "bluetooth-central"]
+        "UIBackgroundModes": [
+          "location",
+          "bluetooth-central"
+        ]
       }
     },
     "android": {
       "package": "app.todu.client",
-      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#07090c"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -60,8 +59,20 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#07090c"
+        }
+      ],
+      "expo-asset"
     ],
-    "experiments": { "typedRoutes": true }
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

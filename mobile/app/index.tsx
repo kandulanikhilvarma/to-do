@@ -1,179 +1,647 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  AccessibilityInfo,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import * as Battery from "expo-battery";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
-import { Link } from "expo-router";
-import { dial112, runLadder, type RungResult } from "../lib/ladder";
-import { enqueue } from "../lib/queue";
-import { initialContext, reduce, type SosConfig, type SosContext } from "../lib/sos-machine";
+import * as Network from "expo-network";
+import { Link, useFocusEffect } from "expo-router";
+import {
+  beginEvent,
+  broadcastEvent,
+  hasBackend,
+  markResolved,
+  sendPing,
+  type Fix,
+} from "../lib/backend";
+import { startBeacon, stopBeacon } from "../lib/beacon";
+import { translate, useT, type Key, type Translate } from "../lib/i18n";
+import { dial112, runLadder, type Rung } from "../lib/ladder";
+import { enqueue, size as queuedCount } from "../lib/queue";
+import { getSettings, loadPins, useSettings } from "../lib/settings";
+import {
+  reduce,
+  type SosConfig,
+  type SosContext,
+  type SosEffect,
+  type SosEvent,
+} from "../lib/sos-machine";
+import { loadSession, saveSession, type SosSession } from "../lib/sos-session";
 import { theme } from "../lib/theme";
+import { startTracking, stopTracking, toFix } from "../lib/tracking";
 
-const config: SosConfig = { countdownSeconds: 8, cancelPin: "", duressPin: "9999" };
+const LIVE = new Set<SosContext["state"]>(["broadcasting", "acknowledged", "enroute"]);
+
+const RUNG_KEY: Record<Rung, Key> = {
+  realtime: "rung.realtime",
+  sms: "rung.sms",
+  dial112: "rung.dial112",
+  ble: "rung.ble",
+  beacon: "rung.beacon",
+};
+
+async function readFix(allowPrompt: boolean): Promise<Fix | null> {
+  try {
+    let perm = await Location.getForegroundPermissionsAsync();
+    if (!perm.granted && allowPrompt) perm = await Location.requestForegroundPermissionsAsync();
+    if (!perm.granted) return null;
+    // Indoors a fresh fix can take minutes. Cap the wait so the SMS step is
+    // never held hostage by the sky, then fall back to the last known fix.
+    const fresh = await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
+    ]);
+    const pos = fresh ?? (await Location.getLastKnownPositionAsync());
+    return pos ? toFix(pos) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readBattery(): Promise<number | null> {
+  const level = await Battery.getBatteryLevelAsync().catch(() => -1);
+  return level >= 0 ? Math.round(level * 100) : null;
+}
 
 export default function SosScreen() {
-  const [ctx, setCtx] = useState<SosContext>(initialContext);
-  const [rungs, setRungs] = useState<RungResult[]>([]);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const t = useT();
+  const settings = useSettings();
 
-  const stopTimer = useCallback(() => {
-    if (timer.current) clearInterval(timer.current);
-    timer.current = null;
+  const [session, setSession] = useState<SosSession>(loadSession);
+  const sessionRef = useRef(session);
+  const configRef = useRef<SosConfig>({ countdownSeconds: 8, cancelPin: "", duressPin: "" });
+  const tick = useRef<ReturnType<typeof setInterval> | null>(null);
+  const batterySub = useRef<{ remove: () => void } | null>(null);
+  const dispatchRef = useRef<(event: SosEvent) => boolean>(() => false);
+
+  const [hasCancelPin, setHasCancelPin] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinWrong, setPinWrong] = useState(false);
+  const [covertPrompt, setCovertPrompt] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [sirenOn, setSirenOn] = useState(false);
+  const [holding, setHolding] = useState(false);
+  const [flashing, setFlashing] = useState(false);
+  const [flashOn, setFlashOn] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [queued, setQueued] = useState(0);
+
+  const commit = useCallback((next: SosSession) => {
+    sessionRef.current = next;
+    saveSession(next);
+    setSession(next);
   }, []);
 
-  useEffect(() => stopTimer, [stopTimer]);
+  const stopTick = useCallback(() => {
+    if (tick.current) clearInterval(tick.current);
+    tick.current = null;
+  }, []);
 
-  const broadcast = useCallback(async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    const position =
-      status === "granted"
-        ? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
-        : null;
-    const lat = position?.coords.latitude ?? 0;
-    const lng = position?.coords.longitude ?? 0;
+  const stopEverything = useCallback(() => {
+    stopTick();
+    stopBeacon();
+    void stopTracking();
+    batterySub.current?.remove();
+    batterySub.current = null;
+    setSirenOn(false);
+    setFlashing(false);
+  }, [stopTick]);
 
-    // Durable first, network second: the record must survive a dying battery.
-    enqueue("event", { lat, lng, at: Date.now() });
-
-    const results = await runLadder({
-      contacts: [],
-      lat,
-      lng,
-      displayName: "Your contact",
-      online: false,
-      broadcast: async () => false,
-      startBeacon: async () => {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      },
+  const watchBattery = useCallback(() => {
+    batterySub.current?.remove();
+    let sent = false;
+    batterySub.current = Battery.addBatteryLevelListener(({ batteryLevel }) => {
+      if (sent || batteryLevel < 0 || batteryLevel > 0.1) return;
+      sent = true;
+      // Last chance before the phone dies: pin the final known position.
+      void readFix(false).then(async (fix) => {
+        if (!fix || !hasBackend()) return;
+        const pct = Math.round(batteryLevel * 100);
+        if (!(await sendPing(fix, pct))) enqueue("ping", { fix, battery: pct });
+      });
     });
-    setRungs(results);
   }, []);
+
+  const escalate = useCallback(
+    async (covert: boolean) => {
+      const s = getSettings();
+      const tr: Translate = (key, vars) => translate(s.locale, key, vars);
+      setWorking(true);
+      beginEvent();
+
+      const [fix, battery, net] = await Promise.all([
+        readFix(!covert),
+        readBattery(),
+        Network.getNetworkStateAsync().catch(() => null),
+      ]);
+      const online = Boolean(net?.isConnected) && net?.isInternetReachable !== false;
+
+      const rungs = await runLadder({
+        contacts: s.contacts,
+        fix,
+        displayName: s.displayName,
+        covert,
+        silent: s.silentMode,
+        t: tr,
+        broadcast: () =>
+          broadcastEvent({ fix, battery, silent: s.silentMode || covert, duress: covert }, online),
+        startBeacon: async () => {
+          const report = await startBeacon();
+          setSirenOn(report.siren);
+          return report;
+        },
+      });
+
+      // The user may have marked safe while the ladder was still running.
+      if (LIVE.has(sessionRef.current.context.state)) {
+        commit({ ...sessionRef.current, rungs });
+        await startTracking(covert, { title: tr("track.title"), body: tr("track.body") });
+        watchBattery();
+      } else {
+        stopBeacon();
+        setSirenOn(false);
+      }
+      setQueued(queuedCount());
+      setWorking(false);
+    },
+    [commit, watchBattery],
+  );
+
+  const runEffect = useCallback(
+    (effect: SosEffect, context: SosContext) => {
+      switch (effect) {
+        case "start_countdown":
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
+          stopTick();
+          tick.current = setInterval(() => dispatchRef.current({ type: "TICK" }), 1000);
+          break;
+        case "cancel_countdown":
+          stopTick();
+          break;
+        case "run_ladder":
+          stopTick();
+          void escalate(context.covert);
+          break;
+        case "stop_ladder":
+          stopEverything();
+          break;
+        case "notify_resolved":
+          void markResolved().then((ok) => {
+            if (!ok && hasBackend()) enqueue("resolve", {});
+          });
+          break;
+      }
+    },
+    [escalate, stopEverything, stopTick],
+  );
+
+  /** Pure reducer in, side effects out, once each. Returns false when the
+   *  event caused no transition (for example a wrong PIN). */
+  const dispatch = useCallback(
+    (event: SosEvent): boolean => {
+      const current = sessionRef.current;
+      const config = { ...configRef.current, countdownSeconds: getSettings().countdownSeconds };
+      const { context, effects } = reduce(current.context, event, config);
+      if (context === current.context && effects.length === 0) return false;
+
+      commit({
+        context,
+        rungs: effects.includes("run_ladder") ? [] : current.rungs,
+        covertDismissed: context.covert ? current.covertDismissed : false,
+      });
+      for (const effect of effects) runEffect(effect, context);
+      return true;
+    },
+    [commit, runEffect],
+  );
+
+  useEffect(() => {
+    dispatchRef.current = dispatch;
+  }, [dispatch]);
+
+  // Resume after the app was killed mid-emergency.
+  useEffect(() => {
+    const { context } = sessionRef.current;
+    const s = getSettings();
+    if (context.state === "countdown") {
+      runEffect("start_countdown", context);
+    } else if (LIVE.has(context.state)) {
+      void startTracking(context.covert, {
+        title: translate(s.locale, "track.title"),
+        body: translate(s.locale, "track.body"),
+      });
+      watchBattery();
+    }
+    return () => {
+      stopTick();
+      batterySub.current?.remove();
+    };
+  }, [runEffect, stopTick, watchBattery]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setQueued(queuedCount());
+      void loadPins().then((pins) => {
+        configRef.current = { ...configRef.current, ...pins };
+        setHasCancelPin(pins.cancelPin !== "");
+      });
+    }, []),
+  );
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+  }, []);
+
+  useEffect(() => {
+    if (!flashing || reduceMotion) return;
+    // About 1.7 flashes a second: under the WCAG 2.3.1 limit of three.
+    const id = setInterval(() => setFlashOn((on) => !on), 600);
+    return () => clearInterval(id);
+  }, [flashing, reduceMotion]);
 
   const trigger = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setCtx((c) => reduce(c, { type: "TRIGGER" }, config).context);
-    stopTimer();
-    timer.current = setInterval(() => {
-      setCtx((current) => {
-        const next = reduce(current, { type: "TICK" }, config);
-        if (next.effects.includes("run_ladder")) {
-          stopTimer();
-          void broadcast();
-        }
-        return next.context;
-      });
-    }, 1000);
-  }, [broadcast, stopTimer]);
+    setPin("");
+    setPinWrong(false);
+    dispatch({ type: "TRIGGER" });
+  }, [dispatch]);
 
-  const cancel = useCallback(() => {
-    stopTimer();
-    setCtx((c) => reduce(c, { type: "CANCEL" }, config).context);
-  }, [stopTimer]);
+  const submitCancel = useCallback(() => {
+    const changed = dispatch({ type: "CANCEL", pin: hasCancelPin ? pin : undefined });
+    setPin("");
+    setPinWrong(!changed);
+  }, [dispatch, hasCancelPin, pin]);
 
-  const markSafe = useCallback(() => {
-    setCtx((c) => reduce(c, { type: "SAFE" }, config).context);
-    setRungs([]);
-  }, []);
+  const submitCovertStop = useCallback(() => {
+    const ok = pin !== "" && pin === configRef.current.cancelPin;
+    setPin("");
+    setCovertPrompt(false);
+    if (ok) dispatch({ type: "SAFE" });
+  }, [dispatch, pin]);
 
-  const rearm = useCallback(() => {
-    setCtx((c) => reduce(c, { type: "REARM" }, config).context);
-    setRungs([]);
-  }, []);
-
-  const live = ctx.state === "broadcasting" || ctx.state === "acknowledged" || ctx.state === "enroute";
+  const { context, rungs } = session;
+  const live = LIVE.has(context.state);
+  // Duress: the screen shows an ordinary cancel while the ladder runs.
+  const view =
+    context.covert && live
+      ? session.covertDismissed
+        ? "armed"
+        : "false_alarm"
+      : context.state;
 
   return (
-    <ScrollView contentContainerStyle={s.page}>
-      {ctx.state === "armed" && (
-        <>
-          <Text style={s.title}>Help is one tap away</Text>
-          <Text style={s.sub}>
-            Hold the button. You get {config.countdownSeconds} seconds to cancel.
-          </Text>
-          <Pressable style={[s.big, s.bigIdle]} onLongPress={trigger} delayLongPress={600}>
-            <Text style={s.bigLabel}>Hold to send SOS</Text>
-          </Pressable>
-        </>
-      )}
-
-      {ctx.state === "countdown" && (
-        <>
-          <Text style={s.title}>Sending in {ctx.secondsRemaining}</Text>
-          <View style={[s.big, s.bigLive]}>
-            <Text style={s.count}>{ctx.secondsRemaining}</Text>
-          </View>
-          <Pressable style={s.cancel} onPress={cancel}>
-            <Text style={s.cancelLabel}>Cancel</Text>
-          </Pressable>
-        </>
-      )}
-
-      {ctx.state === "false_alarm" && (
-        <>
-          <Text style={s.title}>Cancelled</Text>
-          <Text style={s.sub}>No alert was sent.</Text>
-          <Pressable style={s.cancel} onPress={rearm}>
-            <Text style={s.cancelLabel}>Back</Text>
-          </Pressable>
-        </>
-      )}
-
-      {live && (
-        <>
-          <Text style={[s.title, { color: theme.sos }]}>SOS active</Text>
-          <Text style={s.sub}>Escalation ladder</Text>
-          {rungs.map((r) => (
-            <View key={r.rung} style={s.rung}>
-              <Text style={s.rungName}>{r.rung}</Text>
-              <Text style={[s.rungDetail, { color: r.delivered ? theme.ok : theme.inkFaint }]}>
-                {r.detail}
+    <View style={s.root}>
+      <ScrollView contentContainerStyle={s.page} keyboardShouldPersistTaps="handled">
+        {view === "armed" && (
+          <>
+            {/* Hidden gesture to end a covert alert. Deliberately not exposed
+                as a control: an observer must not learn it exists. */}
+            <Pressable
+              accessible={false}
+              onLongPress={context.covert ? () => setCovertPrompt(true) : undefined}
+              delayLongPress={3000}
+            >
+              <Text style={s.title} accessibilityRole="header">
+                {t("sos.title")}
               </Text>
+            </Pressable>
+            <Text style={s.sub}>{t("sos.hint", { n: settings.countdownSeconds })}</Text>
+
+            {covertPrompt ? (
+              <View style={s.pinBox}>
+                <TextInput
+                  value={pin}
+                  onChangeText={setPin}
+                  secureTextEntry
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  placeholder={t("sos.covertPin")}
+                  placeholderTextColor={theme.inkFaint}
+                  accessibilityLabel={t("sos.covertPin")}
+                  style={s.input}
+                  autoFocus
+                />
+                <Pressable style={s.secondary} onPress={submitCovertStop} accessibilityRole="button">
+                  <Text style={s.secondaryLabel}>{t("sos.pinSubmit")}</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                style={[s.big, holding ? s.bigHolding : s.bigIdle]}
+                onPressIn={() => setHolding(true)}
+                onPressOut={() => setHolding(false)}
+                onLongPress={context.covert ? undefined : trigger}
+                delayLongPress={600}
+                accessibilityRole="button"
+                accessibilityLabel={t("sos.holdA11y")}
+                accessibilityActions={[{ name: "activate", label: t("sos.hold") }]}
+                onAccessibilityAction={(e) => {
+                  if (e.nativeEvent.actionName === "activate" && !context.covert) trigger();
+                }}
+              >
+                <Text style={s.bigLabel}>{t("sos.hold")}</Text>
+              </Pressable>
+            )}
+
+            {settings.contacts.length === 0 && (
+              <Link href="/circle" style={s.nudge}>
+                {t("sos.noContacts")}
+              </Link>
+            )}
+            {queued > 0 && <Text style={s.note}>{t("sos.queued", { n: queued })}</Text>}
+          </>
+        )}
+
+        {view === "countdown" && (
+          <>
+            <Text style={s.title} accessibilityRole="header">
+              {t("sos.sendingIn")}
+            </Text>
+            <View
+              style={[s.big, s.bigLive]}
+              accessibilityRole="timer"
+              accessibilityLiveRegion="assertive"
+            >
+              <Text style={s.count}>{context.secondsRemaining}</Text>
             </View>
-          ))}
-          <Pressable style={s.dial} onPress={() => void dial112()}>
-            <Text style={s.dialLabel}>Call 112</Text>
-          </Pressable>
-          <Pressable style={s.cancel} onPress={markSafe}>
-            <Text style={s.cancelLabel}>I am safe</Text>
-          </Pressable>
-        </>
-      )}
 
-      {ctx.state === "resolved" && (
-        <>
-          <Text style={s.title}>Marked safe</Text>
-          <Pressable style={s.cancel} onPress={rearm}>
-            <Text style={s.cancelLabel}>Rearm</Text>
-          </Pressable>
-        </>
-      )}
+            {hasCancelPin ? (
+              <View style={s.pinBox}>
+                <Text style={s.sub}>{t("sos.pinPrompt")}</Text>
+                <TextInput
+                  value={pin}
+                  onChangeText={setPin}
+                  secureTextEntry
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  accessibilityLabel={t("sos.pinPrompt")}
+                  style={s.input}
+                  autoFocus
+                  onSubmitEditing={submitCancel}
+                />
+                <Pressable style={s.secondary} onPress={submitCancel} accessibilityRole="button">
+                  <Text style={s.secondaryLabel}>{t("sos.pinSubmit")}</Text>
+                </Pressable>
+                {pinWrong && (
+                  <Text style={s.warn} accessibilityLiveRegion="polite">
+                    {t("sos.pinWrong")}
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <Pressable style={s.secondary} onPress={submitCancel} accessibilityRole="button">
+                <Text style={s.secondaryLabel}>{t("sos.cancel")}</Text>
+              </Pressable>
+            )}
+          </>
+        )}
 
-      <View style={s.links}>
-        <Link href="/circle" style={s.link}>Your circle</Link>
-        <Link href="/profile" style={s.link}>Medical profile</Link>
-        <Pressable onPress={() => Alert.alert("Todu", "Todu is not a substitute for emergency services. In an emergency, call 112.")}>
-          <Text style={s.link}>Limits</Text>
+        {view === "false_alarm" && (
+          <>
+            <Text style={s.title} accessibilityRole="header">
+              {t("sos.cancelled")}
+            </Text>
+            <Text style={s.sub}>{t("sos.cancelledBody")}</Text>
+            <Pressable
+              style={s.secondary}
+              accessibilityRole="button"
+              onPress={() =>
+                context.covert
+                  ? commit({ ...sessionRef.current, covertDismissed: true })
+                  : dispatch({ type: "REARM" })
+              }
+            >
+              <Text style={s.secondaryLabel}>{t("sos.done")}</Text>
+            </Pressable>
+          </>
+        )}
+
+        {live && !context.covert && (
+          <>
+            <Text style={[s.title, { color: theme.sos }]} accessibilityRole="header">
+              {t("sos.active")}
+            </Text>
+
+            <Pressable style={s.dial} onPress={() => void dial112()} accessibilityRole="button">
+              <Text style={s.dialLabel}>{t("sos.call112")}</Text>
+            </Pressable>
+
+            <Text style={s.section}>{working ? t("sos.running") : t("sos.ladder")}</Text>
+            {rungs.map((r) => (
+              <View
+                key={r.rung}
+                style={s.rung}
+                accessible
+                accessibilityLabel={`${t(RUNG_KEY[r.rung])}. ${r.detail}`}
+              >
+                <Text style={[s.mark, { color: r.delivered ? theme.ok : theme.inkFaint }]}>
+                  {r.delivered ? "✓" : "–"}
+                </Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.rungName}>{t(RUNG_KEY[r.rung])}</Text>
+                  <Text style={s.rungDetail}>{r.detail}</Text>
+                </View>
+              </View>
+            ))}
+
+            <View style={s.row}>
+              {sirenOn && (
+                <Pressable
+                  style={[s.secondary, s.half]}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    stopBeacon();
+                    setSirenOn(false);
+                  }}
+                >
+                  <Text style={s.secondaryLabel}>{t("sos.stopSiren")}</Text>
+                </Pressable>
+              )}
+              {!settings.silentMode && (
+                <Pressable
+                  style={[s.secondary, s.half]}
+                  accessibilityRole="button"
+                  onPress={() => setFlashing(true)}
+                >
+                  <Text style={s.secondaryLabel}>{t("sos.flash")}</Text>
+                </Pressable>
+              )}
+            </View>
+
+            <Pressable
+              style={s.secondary}
+              onPress={() => dispatch({ type: "SAFE" })}
+              accessibilityRole="button"
+            >
+              <Text style={s.secondaryLabel}>{t("sos.safe")}</Text>
+            </Pressable>
+          </>
+        )}
+
+        {view === "resolved" && (
+          <>
+            <Text style={s.title} accessibilityRole="header">
+              {t("sos.safeTitle")}
+            </Text>
+            <Text style={s.sub}>{t("sos.safeBody")}</Text>
+            <Pressable
+              style={s.secondary}
+              onPress={() => dispatch({ type: "REARM" })}
+              accessibilityRole="button"
+            >
+              <Text style={s.secondaryLabel}>{t("sos.done")}</Text>
+            </Pressable>
+          </>
+        )}
+
+        <Text style={s.disclaimer}>{t("sos.disclaimer")}</Text>
+
+        <View style={s.links}>
+          <Link href="/circle" style={s.link}>
+            {t("nav.circle")}
+          </Link>
+          <Link href="/profile" style={s.link}>
+            {t("nav.profile")}
+          </Link>
+          <Link href="/settings" style={s.link}>
+            {t("nav.settings")}
+          </Link>
+        </View>
+      </ScrollView>
+
+      {flashing && (
+        <Pressable
+          style={[
+            StyleSheet.absoluteFill,
+            s.flash,
+            { backgroundColor: reduceMotion || flashOn ? "#ffffff" : theme.sos },
+          ]}
+          onPress={() => setFlashing(false)}
+          accessibilityRole="button"
+          accessibilityLabel={t("sos.flashStop")}
+        >
+          <Text style={s.flashLabel}>{t("sos.flashStop")}</Text>
         </Pressable>
-      </View>
-    </ScrollView>
+      )}
+    </View>
   );
 }
 
 const s = StyleSheet.create({
-  page: { padding: 24, gap: 16, alignItems: "center", backgroundColor: theme.bg, flexGrow: 1 },
-  title: { color: theme.ink, fontSize: 26, fontWeight: "600", textAlign: "center", marginTop: 12 },
-  sub: { color: theme.inkMuted, fontSize: 15, textAlign: "center" },
-  big: { width: 220, height: 220, borderRadius: 110, alignItems: "center", justifyContent: "center", borderWidth: 4, marginVertical: 16 },
+  root: { flex: 1, backgroundColor: theme.bg },
+  page: { padding: 24, gap: 16, alignItems: "center", flexGrow: 1 },
+  title: {
+    color: theme.ink,
+    fontSize: 26,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 12,
+  },
+  sub: { color: theme.inkMuted, fontSize: 15, textAlign: "center", lineHeight: 21 },
+  section: {
+    alignSelf: "stretch",
+    color: theme.inkFaint,
+    fontSize: 13,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    marginTop: 8,
+  },
+  big: {
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 4,
+    marginVertical: 16,
+  },
   bigIdle: { borderColor: "rgba(239,68,68,0.5)", backgroundColor: "rgba(239,68,68,0.1)" },
+  bigHolding: { borderColor: theme.sos, backgroundColor: "rgba(239,68,68,0.22)" },
   bigLive: { borderColor: theme.sos, backgroundColor: "rgba(239,68,68,0.15)" },
-  bigLabel: { color: theme.ink, fontSize: 18, fontWeight: "600", textAlign: "center", paddingHorizontal: 24 },
-  count: { color: theme.ink, fontSize: 72, fontWeight: "600" },
-  cancel: { borderWidth: 1, borderColor: theme.line, backgroundColor: theme.surface2, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 32, width: "100%", alignItems: "center" },
-  cancelLabel: { color: theme.ink, fontSize: 17, fontWeight: "600" },
-  dial: { backgroundColor: theme.sos, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 32, width: "100%", alignItems: "center" },
-  dialLabel: { color: "#fff", fontSize: 17, fontWeight: "700" },
-  rung: { width: "100%", borderWidth: 1, borderColor: theme.line, backgroundColor: theme.surface, borderRadius: 12, padding: 12, gap: 4 },
-  rungName: { color: theme.ink, fontSize: 14, fontWeight: "600", textTransform: "uppercase" },
-  rungDetail: { fontSize: 13 },
-  links: { flexDirection: "row", gap: 20, marginTop: "auto", paddingTop: 24, flexWrap: "wrap", justifyContent: "center" },
-  link: { color: theme.brand, fontSize: 15 },
+  bigLabel: {
+    color: theme.ink,
+    fontSize: 19,
+    fontWeight: "600",
+    textAlign: "center",
+    paddingHorizontal: 28,
+  },
+  count: { color: theme.ink, fontSize: 80, fontWeight: "600" },
+  pinBox: { alignSelf: "stretch", gap: 10 },
+  input: {
+    borderWidth: 1,
+    borderColor: theme.line,
+    backgroundColor: theme.surface,
+    color: theme.ink,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 22,
+    letterSpacing: 8,
+    textAlign: "center",
+  },
+  warn: { color: theme.warn, fontSize: 14, textAlign: "center" },
+  secondary: {
+    borderWidth: 1,
+    borderColor: theme.line,
+    backgroundColor: theme.surface2,
+    borderRadius: 14,
+    minHeight: 56,
+    paddingHorizontal: 24,
+    alignSelf: "stretch",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryLabel: { color: theme.ink, fontSize: 17, fontWeight: "600" },
+  row: { flexDirection: "row", gap: 12, alignSelf: "stretch" },
+  half: { flex: 1, alignSelf: "auto" },
+  dial: {
+    backgroundColor: theme.sos,
+    borderRadius: 14,
+    minHeight: 64,
+    alignSelf: "stretch",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dialLabel: { color: "#fff", fontSize: 20, fontWeight: "700" },
+  rung: {
+    alignSelf: "stretch",
+    flexDirection: "row",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: theme.line,
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    padding: 12,
+  },
+  mark: { fontSize: 18, fontWeight: "700", width: 18, textAlign: "center" },
+  rungName: { color: theme.ink, fontSize: 15, fontWeight: "600" },
+  rungDetail: { color: theme.inkMuted, fontSize: 13, marginTop: 2, lineHeight: 18 },
+  nudge: { color: theme.warn, fontSize: 14, textAlign: "center", textDecorationLine: "underline" },
+  note: { color: theme.inkFaint, fontSize: 13, textAlign: "center" },
+  disclaimer: {
+    color: theme.inkFaint,
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: "auto",
+    paddingTop: 24,
+  },
+  links: { flexDirection: "row", gap: 20, flexWrap: "wrap", justifyContent: "center" },
+  link: { color: theme.brand, fontSize: 15, paddingVertical: 10 },
+  flash: { alignItems: "center", justifyContent: "flex-end", paddingBottom: 64 },
+  flashLabel: {
+    color: "#000",
+    backgroundColor: "rgba(255,255,255,0.85)",
+    fontSize: 16,
+    fontWeight: "600",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
 });
