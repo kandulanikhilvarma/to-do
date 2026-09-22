@@ -97,9 +97,10 @@ export function reduce(
             effects: ["run_ladder"],
           };
         }
-        // Any PIN other than the real cancel PIN must NOT stand the alert
-        // down: a wrong guess under pressure should not silence an emergency.
-        if (event.pin !== undefined && event.pin !== config.cancelPin) {
+        // Once a cancel PIN is configured, only that exact PIN stands the
+        // alert down. A missing or wrong PIN keeps counting: otherwise anyone
+        // holding the phone could silence an emergency by pressing Cancel.
+        if (config.cancelPin !== "" && event.pin !== config.cancelPin) {
           return stay;
         }
         return {

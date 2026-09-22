@@ -49,3 +49,27 @@ test("resolving stops the ladder and can rearm", () => {
   assert.equal(out.context.state, "armed");
   assert.ok(out.effects.includes("stop_ladder"));
 });
+
+test("with a cancel PIN set, cancelling without it keeps counting", () => {
+  const out = run([{ type: "TRIGGER" }, { type: "CANCEL" }]);
+  assert.equal(out.context.state, "countdown");
+  assert.ok(!out.effects.includes("cancel_countdown"));
+});
+
+test("with no cancel PIN set, a plain cancel stands down", () => {
+  const open = { ...config, cancelPin: "" };
+  const armed = reduce(initialContext, { type: "TRIGGER" }, open).context;
+  const out = reduce(armed, { type: "CANCEL" }, open);
+  assert.equal(out.context.state, "false_alarm");
+});
+
+test("countdown elapsing after a failed PIN still broadcasts", () => {
+  const out = run([
+    { type: "TRIGGER" },
+    { type: "CANCEL", pin: "0000" },
+    { type: "TICK" },
+    { type: "TICK" },
+    { type: "TICK" },
+  ]);
+  assert.equal(out.context.state, "broadcasting");
+});
