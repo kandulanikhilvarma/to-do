@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "Todu",
+    "slug": "todu",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "todu",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "backgroundColor": "#07090c",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#07090c"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.todu.client",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Todu shares your location with the people you choose when you trigger an SOS.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Todu needs background location so it can keep your circle updated during an emergency even when the app is closed.",
+        "NSCameraUsageDescription": "Todu captures photo evidence only while an SOS is active, and only if you enable it.",
+        "NSMicrophoneUsageDescription": "Todu records audio evidence only while an SOS is active, and only if you enable it.",
+        "NSBluetoothAlwaysUsageDescription": "Todu can relay your alert through nearby Todu devices when there is no mobile network.",
+        "UIBackgroundModes": ["location", "bluetooth-central"]
+      }
+    },
+    "android": {
+      "package": "app.todu.client",
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#07090c"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "CALL_PHONE",
+        "VIBRATE",
+        "WAKE_LOCK",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_ADVERTISE",
+        "BLUETOOTH_CONNECT",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Todu needs background location so your circle can find you during an emergency.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "expo-notifications"
+    ],
+    "experiments": { "typedRoutes": true }
+  }
+}

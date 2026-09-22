@@ -1,0 +1,35 @@
+{
+  "name": "todu",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "expo": "~57.0.24",
+    "expo-constants": "~57.0.19",
+    "expo-haptics": "~57.0.3",
+    "expo-linking": "~57.0.10",
+    "expo-location": "~57.0.19",
+    "expo-notifications": "~57.0.20",
+    "expo-router": "~57.0.22",
+    "expo-sensors": "~57.0.3",
+    "expo-sms": "~57.0.2",
+    "expo-status-bar": "~57.0.1",
+    "expo-task-manager": "~57.0.19",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-mmkv": "^4.3.2",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "check": "node --experimental-strip-types --test lib/*.test.ts"
+  },
+  "private": true
+}
