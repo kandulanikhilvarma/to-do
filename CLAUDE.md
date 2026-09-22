@@ -43,8 +43,9 @@ Read `docs/ARCHITECTURE.md` before changing anything structural.
 ## Verify before claiming done
 
 ```bash
-cd web    && npx tsc --noEmit && npm run build
-cd mobile && npx tsc --noEmit && npm run check
+cd web      && npx tsc --noEmit && npm run lint && npm run build
+cd mobile   && npx tsc --noEmit && npx expo lint && npx expo-doctor && npm run check
+cd supabase && npm test   # RLS as owner, responder and stranger
 ```
 
 `mobile/lib/sos-machine.ts` is pure and must stay that way; it is the only

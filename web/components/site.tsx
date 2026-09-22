@@ -31,6 +31,19 @@ export function Logo({ className = "" }: { className?: string }) {
   );
 }
 
+/** Keyboard users land on the page, not the navigation. */
+export function SkipLink() {
+  const { t } = useLang();
+  return (
+    <a
+      href="#main"
+      className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-brand focus:px-4 focus:py-2 focus:font-medium focus:text-bg"
+    >
+      {t("a11y.skip")}
+    </a>
+  );
+}
+
 const NAV = [
   { href: "/#how", key: "nav.how" },
   { href: "/#offline", key: "nav.offline" },
@@ -46,7 +59,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-line/70 bg-bg/85 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:px-6">
-        <Link href="/" aria-label="Todu home" className="shrink-0">
+        <Link href="/" aria-label={t("a11y.home")} className="shrink-0">
           <Logo />
         </Link>
 

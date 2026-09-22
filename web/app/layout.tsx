@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { LangProvider } from "@/components/lang";
+import { SkipLink } from "@/components/site";
 import "./globals.css";
+import { siteUrl } from "@/lib/site-url";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -9,7 +11,6 @@ const inter = Inter({
   display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://todu.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -54,13 +55,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-sans antialiased">
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-brand focus:px-4 focus:py-2 focus:font-medium focus:text-bg"
-        >
-          Skip to content
-        </a>
-        <LangProvider>{children}</LangProvider>
+        <LangProvider>
+          <SkipLink />
+          {children}
+        </LangProvider>
       </body>
     </html>
   );

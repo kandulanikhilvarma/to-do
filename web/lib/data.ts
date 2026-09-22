@@ -1,31 +1,39 @@
 // Data layer for the responder console.
 //
 // Called by: components/console.tsx (only consumer).
-// When Supabase env vars are present we read the real `responder_events` view;
-// otherwise the console renders deterministic sample events and labels itself
-// as demo. The demo path exists so the public preview works without
-// credentials -- it is never silently substituted for a configured project.
-//
-// Time is carried as integer minute offsets rather than timestamps so server
-// and client render identical markup (no hydration mismatch, no clock skew).
+// With Supabase env vars set, a signed-in responder reads the real
+// `responder_events` view, which RLS scopes to events from people who invited
+// them and whose invitation they accepted. Without env vars the console shows
+// deterministic sample events and labels itself as demo; it never substitutes
+// demo data for a configured project.
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  type RealtimeChannel,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 
 export type SosState = "broadcasting" | "acknowledged" | "enroute" | "resolved";
 
 /** Which rung of the offline ladder actually delivered this event. */
 export type Transport = "realtime" | "sms" | "ble" | "voice" | "dial112";
 
+export type ResponderStatus = "notified" | "acknowledged" | "enroute" | "arrived";
+
+/** Demo entries carry sample text; live entries are built from typed data
+ *  so the console can render them in the viewer language. */
 export type TimelineEntry = {
   minutesAgo: number;
-  label: string;
+  label?: string;
+  ping?: { accuracy: number };
+  ack?: { name: string; status: ResponderStatus };
   transport?: Transport;
 };
 
 export type Responder = {
   name: string;
-  relationship: string;
-  status: "notified" | "acknowledged" | "enroute";
+  relationship?: string;
+  status: ResponderStatus;
   etaMinutes?: number;
 };
 
@@ -60,13 +68,7 @@ export type ConsoleData = {
   events: SosEvent[];
 };
 
-export const transportLabels: Record<Transport, string> = {
-  realtime: "Realtime (data)",
-  sms: "SMS fallback",
-  ble: "Bluetooth relay",
-  voice: "Voice blast",
-  dial112: "112 dial",
-};
+export type LivePing = { lat: number; lng: number; accuracy: number | null };
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -85,12 +87,61 @@ export function getSupabase(): SupabaseClient | null {
   return client;
 }
 
-/**
- * Row shape of the `responder_events` view. Kept narrow on purpose: row level
- * security restricts it to events owned by one of the viewer active
- * connections, so the view never exposes a wider column set than a responder
- * is entitled to see.
- */
+export function minutesSince(iso: string): number {
+  return Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
+}
+
+/** India-first E.164, matching the mobile app rules. */
+export function normalizePhone(input: string): string | null {
+  const trimmed = input.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  if (trimmed.startsWith("+")) {
+    return digits.length >= 8 && digits.length <= 15 ? `+${digits}` : null;
+  }
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 11 && digits.startsWith("0")) return `+91${digits.slice(1)}`;
+  if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
+  return null;
+}
+
+/* ---------------------------------------------------------------- auth -- */
+
+export async function currentUser(): Promise<{ id: string; phone: string } | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  return user ? { id: user.id, phone: user.phone ?? "" } : null;
+}
+
+export function onAuthChange(callback: () => void): () => void {
+  const supabase = getSupabase();
+  if (!supabase) return () => undefined;
+  const { data } = supabase.auth.onAuthStateChange(() => callback());
+  return () => data.subscription.unsubscribe();
+}
+
+export async function sendOtp(phone: string): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return "not configured";
+  const { error } = await supabase.auth.signInWithOtp({ phone });
+  return error ? error.message : null;
+}
+
+export async function verifyOtp(phone: string, token: string): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return "not configured";
+  const { error } = await supabase.auth.verifyOtp({ phone, token, type: "sms" });
+  return error ? error.message : null;
+}
+
+export async function signOut(): Promise<void> {
+  await getSupabase()?.auth.signOut();
+}
+
+/* -------------------------------------------------------------- events -- */
+
+/** Row shape of the `responder_events` view (supabase migration 0004). */
 type EventRow = {
   id: string;
   person_name: string;
@@ -129,12 +180,12 @@ function rowToEvent(row: EventRow): SosEvent {
     accuracyMetres: row.accuracy_metres,
     lat: row.lat,
     lng: row.lng,
-    placeLabel: row.place_label ?? "Unknown location",
+    placeLabel: row.place_label ?? `${row.lat.toFixed(4)}, ${row.lng.toFixed(4)}`,
     transport: row.transport,
     medical: {
-      bloodGroup: row.blood_group ?? "Not recorded",
-      allergies: row.allergies ?? "None recorded",
-      medications: row.medications ?? "None recorded",
+      bloodGroup: row.blood_group ?? "",
+      allergies: row.allergies ?? "",
+      medications: row.medications ?? "",
     },
     responders: [],
     timeline: [],
@@ -157,6 +208,96 @@ export async function loadEvents(): Promise<ConsoleData> {
   return { source: "live", events: (data as EventRow[]).map(rowToEvent) };
 }
 
+type ResponderRow = {
+  name: string | null;
+  status: ResponderStatus;
+  eta_minutes: number | null;
+  updated_at: string;
+};
+
+type PingRow = {
+  ts: string;
+  accuracy_metres: number | null;
+  transport: Transport;
+};
+
+/** Who is coming, plus the breadcrumb trail, for one live event. */
+export async function loadEventDetail(
+  eventId: string,
+): Promise<{ responders: Responder[]; timeline: TimelineEntry[] }> {
+  const supabase = getSupabase();
+  if (!supabase) return { responders: [], timeline: [] };
+
+  const [acks, pings] = await Promise.all([
+    supabase.rpc("event_responders", { target: eventId }),
+    supabase
+      .from("location_pings")
+      .select("ts, accuracy_metres, transport")
+      .eq("event_id", eventId)
+      .order("ts", { ascending: false })
+      .limit(30),
+  ]);
+  if (acks.error) throw new Error(acks.error.message);
+  if (pings.error) throw new Error(pings.error.message);
+
+  const ackRows = acks.data as ResponderRow[];
+  const responders: Responder[] = ackRows.map((r) => ({
+    name: r.name ?? "",
+    status: r.status,
+    etaMinutes: r.eta_minutes ?? undefined,
+  }));
+
+  const timeline: TimelineEntry[] = [
+    ...(pings.data as PingRow[]).map((p) => ({
+      minutesAgo: minutesSince(p.ts),
+      ping: { accuracy: Math.round(p.accuracy_metres ?? 0) },
+      transport: p.transport,
+    })),
+    ...ackRows.map((r) => ({
+      minutesAgo: minutesSince(r.updated_at),
+      ack: { name: r.name ?? "", status: r.status },
+    })),
+  ].sort((a, b) => b.minutesAgo - a.minutesAgo);
+
+  return { responders, timeline };
+}
+
+export async function acknowledge(
+  eventId: string,
+  status: "enroute" | "arrived",
+  etaMinutes: number | null,
+): Promise<string | null> {
+  const supabase = getSupabase();
+  const user = await currentUser();
+  if (!supabase || !user) return "not signed in";
+  // responder_id must be the caller: RLS rejects anything else (migration 0005).
+  const { error } = await supabase.from("acknowledgements").insert({
+    event_id: eventId,
+    responder_id: user.id,
+    status,
+    eta_minutes: etaMinutes,
+  });
+  return error ? error.message : null;
+}
+
+/** Live pings on the private `sos:<id>` channel. Returns an unsubscribe. */
+export function subscribeToEvent(
+  eventId: string,
+  onPing: (ping: LivePing) => void,
+): () => void {
+  const supabase = getSupabase();
+  if (!supabase) return () => undefined;
+  const channel: RealtimeChannel = supabase
+    .channel(`sos:${eventId}`, { config: { private: true } })
+    .on("broadcast", { event: "ping" }, ({ payload }) => onPing(payload as LivePing))
+    .subscribe();
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}
+
+/* ---------------------------------------------------------------- demo -- */
+
 export function demoEvents(): SosEvent[] {
   return [
     {
@@ -178,12 +319,7 @@ export function demoEvents(): SosEvent[] {
         medications: "Salbutamol inhaler",
       },
       responders: [
-        {
-          name: "Anil Reddy",
-          relationship: "Father",
-          status: "enroute",
-          etaMinutes: 7,
-        },
+        { name: "Anil Reddy", relationship: "Father", status: "enroute", etaMinutes: 7 },
         { name: "Divya K", relationship: "Friend", status: "acknowledged" },
         { name: "Rahul M", relationship: "Colleague", status: "notified" },
       ],
@@ -191,18 +327,10 @@ export function demoEvents(): SosEvent[] {
         { minutesAgo: 6, label: "SOS triggered from home screen widget" },
         { minutesAgo: 6, label: "Countdown elapsed, broadcasting" },
         { minutesAgo: 5, label: "Circle notified", transport: "realtime" },
-        {
-          minutesAgo: 5,
-          label: "SMS delivered to 3 contacts",
-          transport: "sms",
-        },
-        { minutesAgo: 4, label: "Anil Reddy acknowledged" },
-        { minutesAgo: 3, label: "Anil Reddy en route, ETA 7 min" },
-        {
-          minutesAgo: 0,
-          label: "Location ping, accuracy 12 m",
-          transport: "realtime",
-        },
+        { minutesAgo: 5, label: "SMS delivered to 3 contacts", transport: "sms" },
+        { minutesAgo: 4, ack: { name: "Anil Reddy", status: "acknowledged" } },
+        { minutesAgo: 3, ack: { name: "Anil Reddy", status: "enroute" } },
+        { minutesAgo: 0, ping: { accuracy: 12 }, transport: "realtime" },
       ],
     },
     {
@@ -217,11 +345,11 @@ export function demoEvents(): SosEvent[] {
       lat: 17.3616,
       lng: 78.4747,
       placeLabel: "Charminar area, Hyderabad",
-      transport: "ble",
+      transport: "sms",
       medical: {
         bloodGroup: "A negative",
-        allergies: "None recorded",
-        medications: "None recorded",
+        allergies: "",
+        medications: "",
       },
       responders: [
         { name: "Priya Nair", relationship: "Sister", status: "notified" },
@@ -229,14 +357,9 @@ export function demoEvents(): SosEvent[] {
       ],
       timeline: [
         { minutesAgo: 2, label: "SOS triggered, no mobile data" },
-        { minutesAgo: 2, label: "Event queued on device" },
-        {
-          minutesAgo: 2,
-          label: "Relayed by a nearby Todu device",
-          transport: "ble",
-        },
-        { minutesAgo: 2, label: "Relay node flushed event to server" },
-        { minutesAgo: 2, label: "Low battery, last known location pinned" },
+        { minutesAgo: 2, label: "Event saved on the phone" },
+        { minutesAgo: 2, label: "SMS composer sent to 2 contacts", transport: "sms" },
+        { minutesAgo: 2, label: "Low battery, final location pinned" },
       ],
     },
     {
@@ -257,23 +380,13 @@ export function demoEvents(): SosEvent[] {
         allergies: "Sulfa drugs",
         medications: "Metformin",
       },
-      responders: [
-        { name: "Sunita Rao", relationship: "Mother", status: "acknowledged" },
-      ],
+      responders: [{ name: "Sunita Rao", relationship: "Mother", status: "acknowledged" }],
       timeline: [
-        { minutesAgo: 14, label: "Crash detected, SOS auto-armed" },
+        { minutesAgo: 14, label: "SOS triggered from the power button" },
         { minutesAgo: 14, label: "Countdown elapsed, broadcasting" },
-        {
-          minutesAgo: 13,
-          label: "Voice blast placed to 2 contacts",
-          transport: "voice",
-        },
-        { minutesAgo: 11, label: "Sunita Rao acknowledged" },
-        {
-          minutesAgo: 1,
-          label: "Location ping, accuracy 8 m",
-          transport: "realtime",
-        },
+        { minutesAgo: 13, label: "SMS composer sent to 2 contacts", transport: "sms" },
+        { minutesAgo: 11, ack: { name: "Sunita Rao", status: "acknowledged" } },
+        { minutesAgo: 1, ping: { accuracy: 8 }, transport: "realtime" },
       ],
     },
     {
@@ -292,20 +405,13 @@ export function demoEvents(): SosEvent[] {
       medical: {
         bloodGroup: "AB positive",
         allergies: "Latex",
-        medications: "None recorded",
+        medications: "",
       },
-      responders: [
-        {
-          name: "Imran Begum",
-          relationship: "Brother",
-          status: "enroute",
-          etaMinutes: 0,
-        },
-      ],
+      responders: [{ name: "Imran Begum", relationship: "Brother", status: "arrived" }],
       timeline: [
-        { minutesAgo: 51, label: "SOS triggered from quick settings tile" },
-        { minutesAgo: 50, label: "SMS sent to 2 contacts", transport: "sms" },
-        { minutesAgo: 44, label: "Imran Begum arrived" },
+        { minutesAgo: 51, label: "SOS triggered from the SOS button" },
+        { minutesAgo: 50, label: "SMS composer sent to 2 contacts", transport: "sms" },
+        { minutesAgo: 44, ack: { name: "Imran Begum", status: "arrived" } },
         { minutesAgo: 38, label: "Marked safe by Fatima Begum" },
       ],
     },

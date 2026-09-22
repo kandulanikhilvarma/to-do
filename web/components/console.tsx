@@ -1,18 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { LanguageSwitcher, useLang } from "@/components/lang";
 import { Logo, cn } from "@/components/site";
 import {
-  getSupabase,
+  acknowledge,
+  currentUser,
+  hasSupabaseConfig,
+  loadEventDetail,
   loadEvents,
-  transportLabels,
+  normalizePhone,
+  onAuthChange,
+  sendOtp,
+  signOut,
+  subscribeToEvent,
+  verifyOtp,
   type EventSource,
+  type ResponderStatus,
   type SosEvent,
   type SosState,
+  type TimelineEntry,
+  type Transport,
 } from "@/lib/data";
 import type { Key } from "@/lib/i18n";
+
+type Translate = ReturnType<typeof useLang>["t"];
+type MyStatus = "enroute" | "arrived";
+type Auth = "unknown" | "signed_out" | { phone: string };
+
+const REFRESH_MS = 20_000;
+const ETAS = [5, 10, 15, 30];
 
 const STATE_KEY: Record<SosState, Key> = {
   broadcasting: "dash.active",
@@ -29,77 +47,182 @@ const STATE_STYLE: Record<SosState, string> = {
   resolved: "border-ok/50 bg-ok/10 text-ok",
 };
 
-function minutesLabel(m: number): string {
-  if (m <= 0) return "just now";
-  if (m === 1) return "1 min ago";
-  if (m < 60) return `${m} min ago`;
-  const h = Math.floor(m / 60);
-  return h === 1 ? "1 hr ago" : `${h} hr ago`;
+const STATUS_KEY: Record<ResponderStatus, Key> = {
+  notified: "status.notified",
+  acknowledged: "status.acknowledged",
+  enroute: "status.enroute",
+  arrived: "status.arrived",
+};
+
+const TRANSPORT_KEY: Record<Transport, Key> = {
+  realtime: "transport.realtime",
+  sms: "transport.sms",
+  ble: "transport.ble",
+  voice: "transport.voice",
+  dial112: "transport.dial112",
+};
+
+function ago(t: Translate, minutes: number): string {
+  if (minutes <= 0) return t("time.now");
+  if (minutes < 60) return t("time.min", { n: minutes });
+  return t("time.hr", { n: Math.floor(minutes / 60) });
+}
+
+function entryText(t: Translate, entry: TimelineEntry): string {
+  if (entry.label) return entry.label;
+  if (entry.ping) return t("dash.pingLabel", { n: entry.ping.accuracy });
+  if (entry.ack) return `${entry.ack.name}: ${t(STATUS_KEY[entry.ack.status])}`;
+  return "";
 }
 
 export function ResponderConsole() {
   const { t } = useLang();
+  const live = hasSupabaseConfig();
+
+  const [auth, setAuth] = useState<Auth>(live ? "unknown" : { phone: "" });
   const [events, setEvents] = useState<SosEvent[]>([]);
-  const [source, setSource] = useState<EventSource>("demo");
+  const [source, setSource] = useState<EventSource>(live ? "live" : "demo");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [myStatus, setMyStatus] = useState<Record<string, MyStatus>>({});
+  const [notice, setNotice] = useState<Key | null>(null);
+
+  const signedIn = typeof auth === "object";
 
   useEffect(() => {
+    if (!live) return;
+    const check = () => {
+      void currentUser().then((user) => setAuth(user ? { phone: user.phone } : "signed_out"));
+    };
+    check();
+    return onAuthChange(check);
+  }, [live]);
+
+  const refresh = useCallback(
+    () =>
+      loadEvents()
+        .then((data) => {
+          // Keep any detail already loaded for an event; the list query omits it.
+          setEvents((prev) =>
+            data.events.map((next) => {
+              const old = prev.find((e) => e.id === next.id);
+              return old && data.source === "live"
+                ? { ...next, responders: old.responders, timeline: old.timeline }
+                : next;
+            }),
+          );
+          setSource(data.source);
+          setSelectedId((id) => id ?? data.events[0]?.id ?? null);
+          setError(null);
+        })
+        .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)))
+        .finally(() => setLoading(false)),
+    [],
+  );
+
+  useEffect(() => {
+    if (!signedIn) return;
+    void refresh();
+    if (!live) return;
+    const id = setInterval(() => void refresh(), REFRESH_MS);
+    return () => clearInterval(id);
+  }, [signedIn, live, refresh]);
+
+  // Selected live event: who is coming, the trail, and pushed pings.
+  useEffect(() => {
+    if (!live || !signedIn || !selectedId) return;
     let cancelled = false;
-    loadEvents()
-      .then((data) => {
-        if (cancelled) return;
-        setEvents(data.events);
-        setSource(data.source);
-        setSelectedId(data.events[0]?.id ?? null);
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+
+    const loadDetail = () => {
+      loadEventDetail(selectedId)
+        .then((detail) => {
+          if (cancelled) return;
+          setEvents((prev) => prev.map((e) => (e.id === selectedId ? { ...e, ...detail } : e)));
+        })
+        .catch((e: unknown) => {
+          if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        });
+    };
+    loadDetail();
+
+    const unsubscribe = subscribeToEvent(selectedId, (ping) => {
+      const accuracy = Math.round(ping.accuracy ?? 0);
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === selectedId
+            ? {
+                ...e,
+                lat: ping.lat,
+                lng: ping.lng,
+                accuracyMetres: accuracy,
+                lastPingMinutesAgo: 0,
+                timeline: [...e.timeline, { minutesAgo: 0, ping: { accuracy }, transport: "realtime" }],
+              }
+            : e,
+        ),
+      );
+      setNotice("dash.liveUpdate");
+    });
+    const id = setInterval(loadDetail, REFRESH_MS);
+
     return () => {
       cancelled = true;
+      unsubscribe();
+      clearInterval(id);
     };
-  }, []);
+  }, [live, signedIn, selectedId]);
 
   const selected = useMemo(
     () => events.find((e) => e.id === selectedId) ?? null,
     [events, selectedId],
   );
 
-  function patch(id: string, next: Partial<SosEvent>) {
-    setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, ...next } : e)));
-  }
+  async function respond(event: SosEvent, status: MyStatus, eta: number | null) {
+    setMyStatus((m) => ({ ...m, [event.id]: status }));
 
-  async function acknowledge(event: SosEvent) {
-    patch(event.id, { state: "enroute" });
-    const supabase = getSupabase();
-    if (!supabase) return;
-    const { error: writeError } = await supabase
-      .from("acknowledgements")
-      .insert({ event_id: event.id, status: "enroute", eta_minutes: null });
-    if (writeError) setError(writeError.message);
-  }
+    if (!live) {
+      // Demo: reflect the response locally so the flow can be tried.
+      const you = t("dash.you");
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.id === event.id
+            ? {
+                ...e,
+                state: e.state === "resolved" ? e.state : "enroute",
+                responders: [
+                  ...e.responders.filter((r) => r.name !== you),
+                  { name: you, status, etaMinutes: eta ?? undefined },
+                ],
+                timeline: [...e.timeline, { minutesAgo: 0, ack: { name: you, status } }],
+              }
+            : e,
+        ),
+      );
+      return;
+    }
 
-  async function resolve(event: SosEvent) {
-    patch(event.id, { state: "resolved" });
-    const supabase = getSupabase();
-    if (!supabase) return;
-    const { error: writeError } = await supabase
-      .from("sos_events")
-      .update({ state: "resolved" })
-      .eq("id", event.id);
-    if (writeError) setError(writeError.message);
+    const failure = await acknowledge(event.id, status, eta);
+    if (failure) {
+      setError(failure);
+      setMyStatus((m) => {
+        const next = { ...m };
+        delete next[event.id];
+        return next;
+      });
+      return;
+    }
+    const detail = await loadEventDetail(event.id).catch(() => null);
+    if (detail) {
+      setEvents((prev) => prev.map((e) => (e.id === event.id ? { ...e, ...detail } : e)));
+    }
   }
 
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="border-b border-line bg-surface/60">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/" aria-label="Todu home">
+          <Link href="/" aria-label={t("a11y.home")}>
             <Logo />
           </Link>
           <span
@@ -113,6 +236,20 @@ export function ResponderConsole() {
             {source === "live" ? t("dash.live") : t("dash.demo")}
           </span>
           <div className="ml-auto flex items-center gap-2">
+            {live && signedIn && typeof auth === "object" && (
+              <>
+                <span className="hidden text-xs text-ink-faint md:inline">
+                  {t("dash.signedInAs", { phone: `+${auth.phone.replace(/^\+/, "")}` })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void signOut()}
+                  className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink hover:border-brand/60"
+                >
+                  {t("dash.signOut")}
+                </button>
+              </>
+            )}
             <LanguageSwitcher className="hidden sm:inline-flex" />
             <Link
               href="/"
@@ -124,13 +261,9 @@ export function ResponderConsole() {
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">
-            {t("dash.title")}
-          </h1>
-          <p className="mt-1 text-sm text-ink-muted">{t("dash.sub")}</p>
-        </div>
+      <main id="main" className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">{t("dash.title")}</h1>
+        <p className="mt-1 text-sm text-ink-muted">{t("dash.sub")}</p>
 
         {source === "demo" && (
           <p className="mt-4 rounded-xl border border-warn/30 bg-warn/5 p-4 text-sm leading-relaxed text-ink-muted">
@@ -139,13 +272,21 @@ export function ResponderConsole() {
         )}
 
         {error && (
-          <p className="mt-4 rounded-xl border border-sos/40 bg-sos/10 p-4 text-sm text-sos">
+          <p role="alert" className="mt-4 rounded-xl border border-sos/40 bg-sos/10 p-4 text-sm text-sos">
             {error}
           </p>
         )}
 
-        {loading ? (
-          <p className="mt-10 text-sm text-ink-faint">Loading events</p>
+        <p aria-live="polite" className="sr-only">
+          {notice ? t(notice) : ""}
+        </p>
+
+        {auth === "unknown" ? (
+          <p className="mt-10 text-sm text-ink-faint">{t("dash.loading")}</p>
+        ) : auth === "signed_out" ? (
+          <SignIn />
+        ) : loading ? (
+          <p className="mt-10 text-sm text-ink-faint">{t("dash.loading")}</p>
         ) : events.length === 0 ? (
           <p className="mt-10 rounded-xl border border-line bg-surface p-6 text-sm text-ink-muted">
             {t("dash.none")}
@@ -188,9 +329,7 @@ export function ResponderConsole() {
                       >
                         {t(STATE_KEY[e.state])}
                       </span>
-                      <span className="text-xs text-ink-faint">
-                        {minutesLabel(e.openedMinutesAgo)}
-                      </span>
+                      <span className="text-xs text-ink-faint">{ago(t, e.openedMinutesAgo)}</span>
                     </div>
                   </button>
                 </li>
@@ -200,8 +339,8 @@ export function ResponderConsole() {
             {selected ? (
               <EventDetail
                 event={selected}
-                onAcknowledge={() => acknowledge(selected)}
-                onResolve={() => resolve(selected)}
+                mine={myStatus[selected.id]}
+                onRespond={(status, eta) => void respond(selected, status, eta)}
               />
             ) : (
               <p className="rounded-xl border border-line bg-surface p-6 text-sm text-ink-muted">
@@ -210,31 +349,100 @@ export function ResponderConsole() {
             )}
           </div>
         )}
-      </div>
+      </main>
     </div>
+  );
+}
+
+function SignIn() {
+  const { t } = useLang();
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const normalized = normalizePhone(phone);
+    if (!normalized) {
+      setError(t("cta.err"));
+      return;
+    }
+    setBusy(true);
+    const failure = codeSent
+      ? await verifyOtp(normalized, code.trim())
+      : await sendOtp(normalized);
+    setBusy(false);
+    if (failure) setError(t("dash.authError", { msg: failure }));
+    else if (!codeSent) setCodeSent(true);
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="mx-auto mt-10 flex max-w-md flex-col gap-3 rounded-2xl border border-line bg-surface p-6"
+    >
+      <h2 className="text-lg font-semibold text-ink">{t("dash.signInTitle")}</h2>
+      <p className="text-sm leading-relaxed text-ink-muted">{t("dash.signInBody")}</p>
+      <label className="text-sm text-ink-faint">
+        {t("dash.phone")}
+        <input
+          type="tel"
+          autoComplete="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="mt-1 w-full rounded-xl border border-line bg-bg px-4 py-3 text-base text-ink focus:border-brand focus:outline-none"
+        />
+      </label>
+      {codeSent && (
+        <label className="text-sm text-ink-faint">
+          {t("dash.code")}
+          <input
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-line bg-bg px-4 py-3 text-base tracking-widest text-ink focus:border-brand focus:outline-none"
+          />
+        </label>
+      )}
+      <button
+        type="submit"
+        disabled={busy}
+        className="rounded-xl bg-brand px-5 py-3 text-base font-semibold text-bg hover:bg-brand/90 disabled:opacity-60"
+      >
+        {codeSent ? t("dash.verify") : t("dash.sendCode")}
+      </button>
+      {error && (
+        <p role="alert" className="text-sm text-sos">
+          {error}
+        </p>
+      )}
+    </form>
   );
 }
 
 function EventDetail({
   event,
-  onAcknowledge,
-  onResolve,
+  mine,
+  onRespond,
 }: {
   event: SosEvent;
-  onAcknowledge: () => void;
-  onResolve: () => void;
+  mine: MyStatus | undefined;
+  onRespond: (status: MyStatus, eta: number | null) => void;
 }) {
   const { t } = useLang();
-  const acked = event.state === "enroute" || event.state === "resolved";
+  const [eta, setEta] = useState(10);
+  const closed = event.state === "resolved";
 
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-xl border border-line bg-surface p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-ink">
-              {event.personName}
-            </h2>
+            <h2 className="text-lg font-semibold text-ink">{event.personName}</h2>
             <p className="mt-1 text-sm text-ink-muted">{event.placeLabel}</p>
             <p className="mt-1 font-mono text-xs text-ink-faint">
               {event.lat.toFixed(4)}, {event.lng.toFixed(4)}
@@ -257,39 +465,53 @@ function EventDetail({
             alert={event.batteryPercent < 15}
           />
           <Stat label={t("dash.accuracy")} value={`${event.accuracyMetres} m`} />
-          <Stat
-            label={t("dash.lastPing")}
-            value={minutesLabel(event.lastPingMinutesAgo)}
-          />
-          <Stat
-            label={t("dash.transport")}
-            value={transportLabels[event.transport]}
-          />
+          <Stat label={t("dash.lastPing")} value={ago(t, event.lastPingMinutesAgo)} />
+          <Stat label={t("dash.transport")} value={t(TRANSPORT_KEY[event.transport])} />
         </dl>
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-5 flex flex-wrap items-center gap-2">
           <a
             href="tel:112"
             className="rounded-lg bg-sos px-4 py-2.5 text-sm font-semibold text-white hover:bg-sos/90"
           >
             {t("dash.call")}
           </a>
+
+          <div className="flex items-center overflow-hidden rounded-lg border border-line bg-surface-2">
+            <label className="flex items-center gap-1.5 pl-3 text-xs text-ink-faint">
+              {t("dash.etaLabel")}
+              <select
+                value={eta}
+                onChange={(e) => setEta(Number(e.target.value))}
+                disabled={closed || mine !== undefined}
+                className="cursor-pointer bg-transparent py-2.5 text-sm text-ink disabled:opacity-50"
+              >
+                {ETAS.map((n) => (
+                  <option key={n} value={n}>
+                    {t("dash.minutes", { n })}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => onRespond("enroute", eta)}
+              disabled={closed || mine !== undefined}
+              className="border-l border-line px-4 py-2.5 text-sm font-medium text-ink hover:bg-surface disabled:opacity-50"
+            >
+              {mine ? t("dash.acked") : t("dash.ack")}
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={onAcknowledge}
-            disabled={acked}
-            className="rounded-lg border border-line bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink hover:border-brand/60 disabled:opacity-50"
-          >
-            {acked ? t("dash.acked") : t("dash.ack")}
-          </button>
-          <button
-            type="button"
-            onClick={onResolve}
-            disabled={event.state === "resolved"}
+            onClick={() => onRespond("arrived", null)}
+            disabled={closed || mine === "arrived"}
             className="rounded-lg border border-line bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink hover:border-ok/60 disabled:opacity-50"
           >
-            {t("dash.resolve")}
+            {mine === "arrived" ? t("dash.arrivedDone") : t("dash.arrived")}
           </button>
+
           <a
             href={`https://www.openstreetmap.org/?mlat=${event.lat}&mlon=${event.lng}#map=17/${event.lat}/${event.lng}`}
             target="_blank"
@@ -307,9 +529,12 @@ function EventDetail({
             {t("dash.medical")}
           </h3>
           <dl className="mt-4 flex flex-col gap-3 text-sm">
-            <Row label={t("dash.blood")} value={event.medical.bloodGroup} />
-            <Row label={t("dash.allergies")} value={event.medical.allergies} />
-            <Row label={t("dash.meds")} value={event.medical.medications} />
+            <Row label={t("dash.blood")} value={event.medical.bloodGroup || t("dash.noValue")} />
+            <Row
+              label={t("dash.allergies")}
+              value={event.medical.allergies || t("dash.noValue")}
+            />
+            <Row label={t("dash.meds")} value={event.medical.medications || t("dash.noValue")} />
           </dl>
 
           <h3 className="mt-6 text-sm font-semibold uppercase tracking-wider text-ink-faint">
@@ -322,22 +547,21 @@ function EventDetail({
                 className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-sm text-ink">
-                    {r.name}
-                  </span>
-                  <span className="block text-xs text-ink-faint">
-                    {r.relationship}
-                  </span>
+                  <span className="block truncate text-sm text-ink">{r.name}</span>
+                  {r.relationship && (
+                    <span className="block text-xs text-ink-faint">{r.relationship}</span>
+                  )}
                 </span>
-                <span className="shrink-0 text-xs text-ink-muted">
-                  {r.status === "enroute" && r.etaMinutes !== undefined
-                    ? `ETA ${r.etaMinutes} min`
-                    : r.status}
+                <span className="shrink-0 text-right text-xs text-ink-muted">
+                  {t(STATUS_KEY[r.status])}
+                  {r.status === "enroute" && r.etaMinutes !== undefined && (
+                    <span className="block text-ink-faint">{t("dash.eta", { n: r.etaMinutes })}</span>
+                  )}
                 </span>
               </li>
             ))}
             {event.responders.length === 0 && (
-              <li className="text-sm text-ink-faint">None yet</li>
+              <li className="text-sm text-ink-faint">{t("dash.noneYet")}</li>
             )}
           </ul>
         </div>
@@ -351,18 +575,16 @@ function EventDetail({
               <li key={`${entry.minutesAgo}-${i}`} className="flex gap-3">
                 <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand" />
                 <span className="min-w-0">
-                  <span className="block text-sm text-ink">{entry.label}</span>
+                  <span className="block text-sm text-ink">{entryText(t, entry)}</span>
                   <span className="block text-xs text-ink-faint">
-                    {minutesLabel(entry.minutesAgo)}
-                    {entry.transport
-                      ? ` - ${transportLabels[entry.transport]}`
-                      : ""}
+                    {ago(t, entry.minutesAgo)}
+                    {entry.transport ? ` - ${t(TRANSPORT_KEY[entry.transport])}` : ""}
                   </span>
                 </span>
               </li>
             ))}
             {event.timeline.length === 0 && (
-              <li className="text-sm text-ink-faint">No entries yet</li>
+              <li className="text-sm text-ink-faint">{t("dash.noEntries")}</li>
             )}
           </ol>
         </div>
@@ -371,28 +593,11 @@ function EventDetail({
   );
 }
 
-function Stat({
-  label,
-  value,
-  alert = false,
-}: {
-  label: string;
-  value: string;
-  alert?: boolean;
-}) {
+function Stat({ label, value, alert = false }: { label: string; value: string; alert?: boolean }) {
   return (
     <div className="bg-surface px-3 py-3">
-      <dt className="text-[0.7rem] uppercase tracking-wider text-ink-faint">
-        {label}
-      </dt>
-      <dd
-        className={cn(
-          "mt-1 text-sm font-medium",
-          alert ? "text-warn" : "text-ink",
-        )}
-      >
-        {value}
-      </dd>
+      <dt className="text-[0.7rem] uppercase tracking-wider text-ink-faint">{label}</dt>
+      <dd className={cn("mt-1 text-sm font-medium", alert ? "text-warn" : "text-ink")}>{value}</dd>
     </div>
   );
 }

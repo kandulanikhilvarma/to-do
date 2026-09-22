@@ -5,6 +5,20 @@ export const dynamic = "force-dynamic";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+// ponytail: per-instance memory, so the ceiling is per serverless instance,
+// not global. Move to a KV or Upstash limiter if signups ever attract abuse.
+const WINDOW_MS = 60_000;
+const MAX_PER_WINDOW = 5;
+const hits = new Map<string, number[]>();
+
+function rateLimited(ip: string): boolean {
+  const now = Date.now();
+  const recent = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
+  recent.push(now);
+  hits.set(ip, recent);
+  return recent.length > MAX_PER_WINDOW;
+}
+
 /**
  * Beta waitlist signup.
  *
@@ -13,9 +27,17 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
  * a signup that did not happen.
  */
 export async function POST(request: Request) {
-  let email: unknown;
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (rateLimited(ip)) {
+    return NextResponse.json(
+      { ok: false, stored: false, error: "too many requests" },
+      { status: 429 },
+    );
+  }
+
+  let body: { email?: unknown; company?: unknown };
   try {
-    ({ email } = (await request.json()) as { email?: unknown });
+    body = (await request.json()) as typeof body;
   } catch {
     return NextResponse.json(
       { ok: false, stored: false, error: "invalid JSON body" },
@@ -23,6 +45,13 @@ export async function POST(request: Request) {
     );
   }
 
+  // Honeypot field is invisible to people. Answer like a success so bots
+  // learn nothing, but store nothing.
+  if (typeof body.company === "string" && body.company !== "") {
+    return NextResponse.json({ ok: true, stored: false });
+  }
+
+  const { email } = body;
   if (typeof email !== "string" || email.length > 254 || !EMAIL.test(email)) {
     return NextResponse.json(
       { ok: false, stored: false, error: "invalid email" },

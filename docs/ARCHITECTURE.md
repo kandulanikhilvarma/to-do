@@ -37,8 +37,14 @@ flowchart LR
 | Concern | File |
 |---|---|
 | SOS lifecycle | `mobile/lib/sos-machine.ts` (pure, unit tested) |
+| Effects dispatcher, SOS screen | `mobile/app/index.tsx` |
 | Fallback ladder | `mobile/lib/ladder.ts` |
-| Store and forward | `mobile/lib/queue.ts` |
+| Siren and vibration | `mobile/lib/beacon.ts` |
+| Store and forward | `mobile/lib/queue-core.ts` (tested), `mobile/lib/queue.ts` |
+| Live location trail | `mobile/lib/tracking.ts`, registered in `mobile/index.ts` |
+| Server calls, OTP sign-in | `mobile/lib/backend.ts` |
+| PIN rules, phone parsing | `mobile/lib/pin-rules.ts`, `mobile/lib/phone.ts` (tested) |
+| Row level security | `supabase/migrations/0003_rls.sql`, `0005_security_fixes.sql` (tested) |
 | Responder read model | `supabase/migrations/0004_responder_view.sql` |
 | Console UI | `web/components/console.tsx` |
 | Web data access | `web/lib/data.ts` |

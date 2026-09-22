@@ -67,7 +67,7 @@ function store(next: Locale): void {
 type LangValue = {
   locale: Locale;
   setLocale: (next: Locale) => void;
-  t: (key: Key) => string;
+  t: (key: Key, vars?: Record<string, string | number>) => string;
 };
 
 const LangContext = createContext<LangValue | null>(null);
@@ -86,7 +86,17 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
   const setLocale = useCallback((next: Locale) => store(next), []);
 
   const value = useMemo<LangValue>(
-    () => ({ locale, setLocale, t: (key: Key) => dictionaries[locale][key] }),
+    () => ({
+      locale,
+      setLocale,
+      t: (key: Key, vars?: Record<string, string | number>) => {
+        let text = dictionaries[locale][key];
+        for (const [name, value] of Object.entries(vars ?? {})) {
+          text = text.replaceAll(`{${name}}`, String(value));
+        }
+        return text;
+      },
+    }),
     [locale, setLocale],
   );
 

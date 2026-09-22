@@ -13,7 +13,7 @@ export function LegalPage({
   updated: string;
   children: React.ReactNode;
 }) {
-  const { t } = useLang();
+  const { locale, t } = useLang();
 
   return (
     <>
@@ -28,10 +28,13 @@ export function LegalPage({
           </p>
 
           <p className="mt-6 rounded-xl border border-warn/30 bg-warn/5 p-4 text-sm leading-relaxed text-ink-muted">
-            This document is a working draft published for transparency while
-            Todu is in development. It has not yet been reviewed by counsel and
-            is not a binding agreement. Do not rely on it for legal advice.
+            {t("legal.draft")}
           </p>
+          {locale !== "en" && (
+            <p lang="en" className="mt-3 text-sm text-ink-faint">
+              {t("legal.englishOnly")}
+            </p>
+          )}
 
           <div className="mt-10 flex flex-col gap-8">{children}</div>
 

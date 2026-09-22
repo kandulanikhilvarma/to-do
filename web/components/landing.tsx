@@ -165,12 +165,14 @@ function Hero() {
 function HeroDevice() {
   const { t } = useLang();
 
+  // An offline escalation as the current build actually runs it: no data, the
+  // SMS composer sent, 112 ready, Bluetooth relay not shipped yet, siren on.
   const rungs = [
-    { icon: Icons.wifi, label: t("offline.l1.t"), state: "failed" },
-    { icon: Icons.message, label: t("offline.l2.t"), state: "failed" },
-    { icon: Icons.phone, label: t("offline.l3.t"), state: "active" },
-    { icon: Icons.bluetooth, label: t("offline.l4.t"), state: "active" },
-    { icon: Icons.siren, label: t("offline.l5.t"), state: "pending" },
+    { icon: Icons.wifi, label: t("offline.l1.t"), tag: t("hero.device.noSignal"), tone: "dim" },
+    { icon: Icons.message, label: t("offline.l2.t"), tag: t("hero.device.sent"), tone: "good" },
+    { icon: Icons.phone, label: t("offline.l3.t"), tag: t("hero.device.ready"), tone: "plain" },
+    { icon: Icons.bluetooth, label: t("offline.l4.t"), tag: t("hero.device.planned"), tone: "dim" },
+    { icon: Icons.siren, label: t("offline.l5.t"), tag: t("hero.device.on"), tone: "good" },
   ] as const;
 
   return (
@@ -180,12 +182,12 @@ function HeroDevice() {
           <div className="flex items-center justify-between">
             <span className="inline-flex items-center gap-2 text-xs font-medium text-sos">
               <span className="todu-pulse size-2 rounded-full bg-sos" />
-              SOS active
+              {t("hero.device.active")}
             </span>
             <span className="text-xs tabular-nums text-ink-faint">00:42</span>
           </div>
 
-          <p className="mt-4 text-sm text-ink-muted">Escalation ladder</p>
+          <p className="mt-4 text-sm text-ink-muted">{t("hero.device.ladder")}</p>
 
           <ul className="mt-3 flex flex-col gap-2">
             {rungs.map((r) => (
@@ -193,9 +195,9 @@ function HeroDevice() {
                 key={r.label}
                 className={cn(
                   "flex items-center gap-3 rounded-lg border px-3 py-2.5",
-                  r.state === "active"
+                  r.tone === "good"
                     ? "border-ok/40 bg-ok/5"
-                    : r.state === "failed"
+                    : r.tone === "dim"
                       ? "border-line bg-surface/60 opacity-60"
                       : "border-line bg-surface/60",
                 )}
@@ -203,7 +205,7 @@ function HeroDevice() {
                 <r.icon
                   className={cn(
                     "size-4 shrink-0",
-                    r.state === "active" ? "text-ok" : "text-ink-faint",
+                    r.tone === "good" ? "text-ok" : "text-ink-faint",
                   )}
                 />
                 <span className="flex-1 truncate text-xs text-ink">
@@ -212,14 +214,10 @@ function HeroDevice() {
                 <span
                   className={cn(
                     "shrink-0 text-[0.65rem] font-semibold uppercase tracking-wider",
-                    r.state === "active" ? "text-ok" : "text-ink-faint",
+                    r.tone === "good" ? "text-ok" : "text-ink-faint",
                   )}
                 >
-                  {r.state === "active"
-                    ? "sent"
-                    : r.state === "failed"
-                      ? "no signal"
-                      : "ready"}
+                  {r.tag}
                 </span>
               </li>
             ))}
@@ -673,6 +671,7 @@ function Faq() {
 function Waitlist() {
   const { t } = useLang();
   const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "error">(
     "idle",
   );
@@ -691,18 +690,14 @@ function Waitlist() {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, company }),
       });
       const body = (await res.json()) as { ok: boolean; stored: boolean };
       if (!res.ok || !body.ok) throw new Error("request failed");
 
       setStatus("ok");
       // Say plainly when the preview has no database behind it.
-      setNote(
-        body.stored
-          ? t("cta.ok")
-          : `${t("cta.ok")} (Preview build: no database is connected, so nothing was stored.)`,
-      );
+      setNote(body.stored ? t("cta.ok") : `${t("cta.ok")} ${t("cta.previewNote")}`);
       setEmail("");
     } catch {
       setStatus("error");
@@ -724,6 +719,18 @@ function Waitlist() {
           onSubmit={submit}
           className="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:flex-row"
         >
+          {/* Honeypot: invisible to people and screen readers, filled by bots. */}
+          <div aria-hidden="true" className="absolute -left-[9999px] h-0 overflow-hidden">
+            <label>
+              Company
+              <input
+                tabIndex={-1}
+                autoComplete="off"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+              />
+            </label>
+          </div>
           <label className="flex-1">
             <span className="sr-only">{t("cta.placeholder")}</span>
             <input
