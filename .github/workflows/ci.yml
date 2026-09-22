@@ -33,6 +33,23 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npx tsc --noEmit
-      # The SOS state machine is the one piece of logic that decides whether
-      # help is summoned. It must pass before anything merges.
+      - run: npx expo lint
+      - run: npx expo-doctor
+      # SOS state machine, PIN rules, phone parsing and the offline queue.
+      # The state machine decides whether help is summoned; it must pass.
       - run: npm run check
+
+  database:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: supabase
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      # Applies every migration to Postgres + PostGIS and checks row level
+      # security as an owner, an invited responder and a stranger.
+      - run: npm test
