@@ -51,5 +51,8 @@ jobs:
           node-version: 22
       - run: npm ci
       # Applies every migration to Postgres + PostGIS and checks row level
-      # security as an owner, an invited responder and a stranger.
+      # security as an owner, an invited responder and a stranger; also the
+      # fan-out and relay cores against provider request formats.
       - run: npm test
+      # Edge Functions typecheck under the Deno release Supabase runs.
+      - run: npx --yes deno@2.9.6 check functions/sos-fanout/index.ts functions/sos-relay/index.ts

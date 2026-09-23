@@ -264,3 +264,117 @@ test("the nearby_responders function is gone", async () => {
   const found = await db.query("select 1 from pg_proc where proname = 'nearby_responders'");
   assert.equal(found.rows.length, 0);
 });
+
+/* ------------------------------------------------ 0006: invites & fan-out -- */
+
+const D = "00000000-0000-0000-0000-00000000000d";
+const UNREGISTERED = "+910000000009";
+
+test("inviting never reveals whether a number is on Todu", async () => {
+  const onTodu = await as(A, "select invite_contact($1, 'Friend') as r", ["+910000000003"]);
+  const notOnTodu = await as(A, "select invite_contact($1, 'Cousin') as r", [UNREGISTERED]);
+  assert.equal(onTodu.rows[0].r, "sent");
+  assert.equal(notOnTodu.rows[0].r, "sent");
+
+  const circle = await as(A, "select phone, status from my_circle() order by phone");
+  const statuses = Object.fromEntries(circle.rows.map((r) => [r.phone, r.status]));
+  assert.equal(statuses["+910000000003"], "pending");
+  assert.equal(statuses[UNREGISTERED], "pending");
+});
+
+test("the invited Todu user sees who invited them, and can accept", async () => {
+  const invites = await as(C, "select connection_id, owner_name from my_invites()");
+  assert.deepEqual(
+    invites.rows.map((r) => r.owner_name),
+    ["Asha"],
+  );
+  await as(C, "update connections set status = 'active' where id = $1", [
+    invites.rows[0].connection_id,
+  ]);
+  const responding = await as(C, "select owner_name from responding_for()");
+  assert.deepEqual(
+    responding.rows.map((r) => r.owner_name),
+    ["Asha"],
+  );
+  const seen = await as(C, "select id from sos_events");
+  assert.equal(seen.rows.length, 1);
+});
+
+test("an invite to an unregistered number is claimed at sign up", async () => {
+  await db.query("insert into auth.users values ($1)", [D]);
+  await db.query(
+    "insert into profiles (id, phone, display_name) values ($1, $2, 'Dev')",
+    [D, UNREGISTERED],
+  );
+  const invites = await as(D, "select owner_name, relationship from my_invites()");
+  assert.deepEqual(invites.rows, [{ owner_name: "Asha", relationship: "Cousin" }]);
+  const left = await db.query("select 1 from pending_invites where phone = $1", [UNREGISTERED]);
+  assert.equal(left.rows.length, 0);
+});
+
+test("the owner can revoke, and the revoked contact loses access", async () => {
+  await as(A, "select revoke_contact($1)", ["+910000000003"]);
+  const seen = await as(C, "select id from sos_events");
+  assert.equal(seen.rows.length, 0);
+  const circle = await as(A, "select phone from my_circle()");
+  assert.ok(!circle.rows.some((r) => r.phone === "+910000000003"));
+});
+
+test("emergency contacts are private to their owner", async () => {
+  await as(
+    A,
+    "insert into emergency_contacts (owner_id, name, phone) values ($1, 'Amma', '+919999999999')",
+    [A],
+  );
+  assert.equal((await as(A, "select 1 from emergency_contacts")).rows.length, 1);
+  assert.equal((await as(B, "select 1 from emergency_contacts")).rows.length, 0);
+  await assert.rejects(
+    as(
+      B,
+      "insert into emergency_contacts (owner_id, name, phone) values ($1, 'x', '+911111111111')",
+      [A],
+    ),
+    /row-level security/,
+  );
+});
+
+test("a relay secret is stable per user and unreadable by others", async () => {
+  const first = (await as(A, "select issue_relay_secret() as s")).rows[0].s;
+  const second = (await as(A, "select issue_relay_secret() as s")).rows[0].s;
+  assert.equal(first, second);
+  assert.match(first, /^[0-9a-f]{64}$/);
+  const other = (await as(B, "select issue_relay_secret() as s")).rows[0].s;
+  assert.notEqual(other, first);
+  assert.equal((await as(B, "select 1 from relay_secrets")).rows.length, 0);
+});
+
+test("the same client_id cannot create two events", async () => {
+  const cid = "11111111-1111-4111-8111-111111111111";
+  await as(A, "insert into sos_events (user_id, client_id) values ($1, $2)", [A, cid]);
+  await as(
+    A,
+    "insert into sos_events (user_id, client_id) values ($1, $2) on conflict (client_id) do nothing",
+    [A, cid],
+  );
+  const rows = await db.query("select 1 from sos_events where client_id = $1", [cid]);
+  assert.equal(rows.rows.length, 1);
+});
+
+test("delivery logs are readable by the event owner only", async () => {
+  await db.query(
+    `insert into notifications (event_id, kind, channel, recipient, status)
+     values ($1, 'opened', 'sms', '+91******0002', 'sent')`,
+    [eventId],
+  );
+  assert.equal((await as(A, "select 1 from notifications")).rows.length, 1);
+  assert.equal((await as(B, "select 1 from notifications")).rows.length, 0);
+  await assert.rejects(
+    as(
+      A,
+      `insert into notifications (event_id, kind, channel, recipient, status)
+       values ($1, 'opened', 'sms', 'x', 'sent')`,
+      [eventId],
+    ),
+    /row-level security/,
+  );
+});
