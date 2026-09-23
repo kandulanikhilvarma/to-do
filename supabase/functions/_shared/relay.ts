@@ -12,8 +12,9 @@ export type RelayPayload = {
   uid: string;
   /** Client id of the SOS, shared with the phone own submission. */
   cid: string;
-  lat: number;
-  lng: number;
+  /** Null when the phone has no fix: the alert still matters. */
+  lat: number | null;
+  lng: number | null;
   acc: number | null;
   bat: number | null;
   /** Milliseconds since epoch when the phone raised the SOS. */
@@ -30,8 +31,8 @@ export function canonical(p: Omit<RelayPayload, "sig">): string {
     "todu-relay-v1",
     p.uid.toLowerCase(),
     p.cid.toLowerCase(),
-    p.lat.toFixed(6),
-    p.lng.toFixed(6),
+    p.lat === null ? "" : p.lat.toFixed(6),
+    p.lng === null ? "" : p.lng.toFixed(6),
     p.acc === null ? "" : String(Math.round(p.acc)),
     p.bat === null ? "" : String(Math.round(p.bat)),
     String(p.ts),
@@ -49,8 +50,9 @@ export function parseRelayPayload(input: unknown): RelayPayload | null {
   if (p.v !== 1) return null;
   if (typeof p.uid !== "string" || !UUID.test(p.uid)) return null;
   if (typeof p.cid !== "string" || !UUID.test(p.cid)) return null;
-  if (!isNum(p.lat) || p.lat < -90 || p.lat > 90) return null;
-  if (!isNum(p.lng) || p.lng < -180 || p.lng > 180) return null;
+  if (!(p.lat === null || (isNum(p.lat) && p.lat >= -90 && p.lat <= 90))) return null;
+  if (!(p.lng === null || (isNum(p.lng) && p.lng >= -180 && p.lng <= 180))) return null;
+  if ((p.lat === null) !== (p.lng === null)) return null;
   if (!(p.acc === null || (isNum(p.acc) && p.acc >= 0))) return null;
   if (!(p.bat === null || (isNum(p.bat) && p.bat >= 0 && p.bat <= 100))) return null;
   if (!isNum(p.ts)) return null;

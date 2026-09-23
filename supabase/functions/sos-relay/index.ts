@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     .select("id", { count: "exact", head: true })
     .eq("event_id", event.id)
     .eq("ts", raisedAt);
-  if ((count ?? 0) === 0) {
+  if ((count ?? 0) === 0 && payload.lat !== null && payload.lng !== null) {
     await admin.from("location_pings").insert({
       event_id: event.id,
       point: `SRID=4326;POINT(${payload.lng} ${payload.lat})`,
