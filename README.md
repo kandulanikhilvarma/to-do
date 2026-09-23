@@ -97,12 +97,13 @@ Stated plainly, because a safety app that oversells itself gets someone hurt:
 
 - **No voice calls.** MSG91 does not publish its voice API, and a guessed
   request would fail silently in an emergency. Push and SMS are built.
-- **Not run on a phone.** The mobile app typechecks, lints, passes 30 unit
-  tests, bundles for Android with Hermes, and prebuilds with the permissions
-  verified (no `SEND_SMS`, which is also blocked outright). It has not run on a
-  device: this machine has no Android SDK and no EAS login. The Stage 0 gate in
-  `docs/PERMISSIONS.md` (24 hours of background location on MIUI and ColorOS)
-  is still open.
+- **Run on an emulator, not a phone.** A release build (x86_64) installs and
+  launches on an Android 16 Pixel 6 emulator with no crash or JS error. It has
+  not run on a physical device, so GPS, SMS, calls, torch and Bluetooth are
+  untested on hardware. The Stage 0 gate in `docs/PERMISSIONS.md` (24 hours of
+  background location on MIUI and ColorOS) is still open. Building on Windows
+  needs `plugins/with-short-object-paths.js`: gesture-handler's codegen
+  otherwise produces a C++ object path over the 260-character limit.
 - **Bluetooth relay and torch are built, not field tested.** The relay needs a
   Bridgefy licence and a second Todu phone within about 100 m; the torch relies
   on a hidden camera view and reports itself only once the camera is ready.

@@ -86,7 +86,8 @@
           "recordAudioAndroid": false
         }
       ],
-      "./plugins/with-bridgefy"
+      "./plugins/with-bridgefy",
+      "./plugins/with-short-object-paths"
     ],
     "experiments": {
       "typedRoutes": true
