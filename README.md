@@ -1,5 +1,9 @@
 # Todu
 
+[![CI](https://github.com/kandulanikhilvarma/to-do/actions/workflows/ci.yml/badge.svg)](https://github.com/kandulanikhilvarma/to-do/actions/workflows/ci.yml)
+[![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
+[![Live site](https://img.shields.io/badge/site-todu--kandula.vercel.app-0f766e.svg)](https://todu-kandula.vercel.app)
+
 **Help is one tap away.** A personal emergency SOS and safety app for India,
 plus its companion website and responder console.
 
@@ -18,9 +22,36 @@ Live preview: https://todu-kandula.vercel.app
 | `supabase/` | Postgres + PostGIS schema and RLS, invites, `sos-fanout` (push + SMS) and `sos-relay` Edge Functions. | 23 RLS tests on real Postgres, 15 fan-out and relay tests, `deno check` |
 | `docs/` | Architecture, offline ladder, permissions, threat model, source spec. | |
 
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Phone["mobile/ (Expo)"]
+      SM["sos-machine.ts"] --> Q["queue (MMKV)"]
+      SM --> L["ladder: SMS composer, 112, siren, torch"]
+      SM --> R["Bluetooth relay"]
+    end
+    subgraph Supabase
+      DB[("Postgres + PostGIS, RLS")]
+      RT["Realtime broadcast sos:id"]
+      FO["sos-fanout: push + SMS"]
+      RL["sos-relay: signed intake"]
+    end
+    Q --> DB
+    Q --> RT
+    R --> RL
+    RL --> DB
+    DB --> FO
+    RT --> C["web/ responder console (Vercel)"]
+    FO --> C
+```
+
+Full component map, state machine and data model: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Run it
 
 ```bash
+git clone https://github.com/kandulanikhilvarma/to-do.git && cd to-do
 cd web      && npm install && npm run dev     # http://localhost:3000
 cd mobile   && npm install && npx expo start  # needs a development build
 cd mobile   && npm run check                  # state machine, PINs, phone, queue
@@ -93,3 +124,7 @@ Stated plainly, because a safety app that oversells itself gets someone hurt:
 
 Apache-2.0. Chosen over MIT for its explicit patent grant and its warranty and
 liability disclaimers, which matter for a safety application.
+
+---
+
+[LinkedIn](https://www.linkedin.com/in/nikhilvarmakandula) · [Email](mailto:kandulanikhilvarma@gmail.com) · [Portfolio](https://kandula.studio)

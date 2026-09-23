@@ -6,8 +6,9 @@ good-faith research.
 
 ## Reporting a vulnerability
 
-Open a private security advisory through this repository Security tab. Please
-do not open a public issue for an unpatched vulnerability.
+Open a private security advisory through this repository Security tab, or
+email kandulanikhilvarma@gmail.com. Please do not open a public issue for an
+unpatched vulnerability.
 
 Include: what you found, how to reproduce it, and what an attacker could do
 with it. If you have a suggested fix, even better.
