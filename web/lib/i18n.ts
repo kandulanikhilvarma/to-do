@@ -49,7 +49,7 @@ export const en = {
     "A countdown with a large cancel target stops false alarms. Enter your duress PIN instead and Todu fakes a cancel while silently escalating.",
   "how.s3.t": "Everyone who matters, at once",
   "how.s3.d":
-    "Live location and a breadcrumb trail stream to your circle. Push, SMS and a voice blast go out together, so a missed notification is not a missed emergency.",
+    "Live location and a breadcrumb trail stream to your circle. Push alerts and SMS go out together, so a missed notification is not a missed emergency.",
   "how.s4.t": "Help arrives, and you can see it",
   "how.s4.d":
     "Responders acknowledge, share an ETA, and coordinate, so three people do not drive to the same place while a fourth assumes someone else went.",
@@ -73,7 +73,7 @@ export const en = {
   "offline.l4.t": "Bluetooth relay to nearby phones",
   "offline.l4.d":
     "Your alert hops phone to phone across roughly 100 m per hop. Any device that reaches the internet flushes it to your circle. Best effort, not a guarantee.",
-  "offline.l4.tag": "Planned",
+  "offline.l4.tag": "In testing",
   "offline.l5.t": "Siren, torch, screen flash",
   "offline.l5.d":
     "When every radio has failed, be found by the humans who can already see and hear you.",
@@ -97,9 +97,9 @@ export const en = {
   "limits.l4.t": "Your phone may fight us",
   "limits.l4.d":
     "Xiaomi, Realme, Oppo and Vivo kill background apps aggressively. Todu ships a setup wizard for your exact phone, and a health dashboard that nags you if protection silently lapses.",
-  "limits.l5.t": "Bluetooth relay is planned, and best effort",
+  "limits.l5.t": "Bluetooth relay is best effort",
   "limits.l5.d":
-    "It is not in the first release. When it ships it needs another Todu user within about 100 m, so in an empty field at 3am it will not save you. The siren and 112 will still be there.",
+    "It is built but not yet field tested. It needs another Todu user within about 100 m, so in an empty field at 3am it will not save you. The siren and 112 will still be there.",
   "limits.l6.t": "Permissions cannot be frictionless",
   "limits.l6.d":
     "Android and iOS deliberately gate background location and microphone access. We ask at the moment each one earns its keep, and explain why first.",
@@ -244,7 +244,7 @@ export const en = {
   "hero.device.noSignal": "no signal",
   "hero.device.ready": "ready",
   "hero.device.on": "on",
-  "hero.device.planned": "planned",
+  "hero.device.planned": "testing",
   "a11y.skip": "Skip to content",
   "a11y.home": "Todu home",
   "cta.previewNote": "Preview build: no database is connected, so nothing was stored.",
@@ -286,6 +286,12 @@ export const en = {
   "notFound.call": "Call 112",
   "dash.you": "You",
   "dash.noValue": "Not recorded",
+  "dash.invites": "Invitations",
+  "dash.inviteBody": "{name} wants you as an emergency responder.",
+  "dash.accept": "Accept",
+  "dash.decline": "Decline",
+  "dash.respondingFor": "You respond for",
+  "dash.respondingNone": "Nobody yet. Ask them to invite this phone number from the Todu app.",
 } as const;
 
 export type Key = keyof typeof en;
@@ -330,7 +336,7 @@ export const te: Dict = {
     "పెద్ద క్యాన్సిల్ బటన్‌తో కౌంట్‌డౌన్ తప్పుడు అలారాలను ఆపుతుంది. బదులుగా మీ డ్యురెస్ పిన్ నమోదు చేస్తే, Todu బయటకు రద్దు చేసినట్టు చూపిస్తూ లోపల నిశ్శబ్దంగా సహాయం పంపుతుంది.",
   "how.s3.t": "ముఖ్యమైన వారందరికీ, ఒకేసారి",
   "how.s3.d":
-    "ప్రత్యక్ష లొకేషన్ మరియు మీ మార్గం మీ సర్కిల్‌కు చేరుతుంది. పుష్, SMS, వాయిస్ కాల్ అన్నీ కలిసి వెళ్తాయి — ఒక నోటిఫికేషన్ మిస్ అయితే అత్యవసరం మిస్ కాకూడదు.",
+    "ప్రత్యక్ష లొకేషన్ మరియు మీ మార్గం మీ సర్కిల్‌కు చేరుతుంది. పుష్ హెచ్చరికలు, SMS కలిసి వెళ్తాయి — ఒక నోటిఫికేషన్ మిస్ అయితే అత్యవసరం మిస్ కాకూడదు.",
   "how.s4.t": "సహాయం వస్తుంది, మీరు చూడగలరు",
   "how.s4.d":
     "స్పందించేవారు అంగీకరించి, ఎప్పుడు చేరతారో తెలిపి, సమన్వయం చేసుకుంటారు — ముగ్గురు ఒకే చోటికి వెళ్లి, నాలుగో వ్యక్తి ఇంకెవరో వెళ్లారనుకోకుండా.",
@@ -354,7 +360,7 @@ export const te: Dict = {
   "offline.l4.t": "దగ్గరలోని ఫోన్లకు బ్లూటూత్ రిలే",
   "offline.l4.d":
     "మీ హెచ్చరిక ఫోన్ నుంచి ఫోన్‌కు, ఒక్కో హాప్‌కు సుమారు 100 మీటర్లు ప్రయాణిస్తుంది. ఇంటర్నెట్ ఉన్న ఏ పరికరమైనా దాన్ని మీ సర్కిల్‌కు పంపుతుంది. ఇది ప్రయత్నం మాత్రమే, హామీ కాదు.",
-  "offline.l4.tag": "ప్రణాళికలో",
+  "offline.l4.tag": "పరీక్షలో",
   "offline.l5.t": "సైరన్, టార్చ్, స్క్రీన్ ఫ్లాష్",
   "offline.l5.d":
     "అన్ని రేడియోలు విఫలమైనప్పుడు, మిమ్మల్ని ఇప్పటికే చూడగల, వినగల మనుషులకు కనిపించండి.",
@@ -378,9 +384,9 @@ export const te: Dict = {
   "limits.l4.t": "మీ ఫోనే అడ్డుపడవచ్చు",
   "limits.l4.d":
     "Xiaomi, Realme, Oppo, Vivo బ్యాక్‌గ్రౌండ్ యాప్‌లను కఠినంగా ఆపేస్తాయి. మీ ఫోన్‌కే ప్రత్యేకమైన సెటప్ విజార్డ్, రక్షణ నిశ్శబ్దంగా ఆగిపోతే గుర్తుచేసే హెల్త్ డాష్‌బోర్డ్ Toduలో ఉన్నాయి.",
-  "limits.l5.t": "బ్లూటూత్ రిలే ప్రణాళికలో ఉంది, ప్రయత్నం మాత్రమే",
+  "limits.l5.t": "బ్లూటూత్ రిలే ప్రయత్నం మాత్రమే",
   "limits.l5.d":
-    "ఇది మొదటి విడుదలలో ఉండదు. వచ్చినప్పుడు కూడా సుమారు 100 మీటర్ల లోపల మరో Todu వాడకరి ఉండాలి, కాబట్టి తెల్లవారుజామున ఖాళీ పొలంలో అది మిమ్మల్ని కాపాడలేదు. సైరన్, 112 మాత్రం అప్పుడూ ఉంటాయి.",
+    "ఇది తయారైంది కానీ ఇంకా క్షేత్రస్థాయిలో పరీక్షించలేదు. సుమారు 100 మీటర్ల లోపల మరో Todu వాడకరి ఉండాలి, కాబట్టి తెల్లవారుజామున ఖాళీ పొలంలో అది మిమ్మల్ని కాపాడలేదు. సైరన్, 112 మాత్రం అప్పుడూ ఉంటాయి.",
   "limits.l6.t": "అనుమతులు పూర్తిగా సులభం కావు",
   "limits.l6.d":
     "ఆండ్రాయిడ్, iOS బ్యాక్‌గ్రౌండ్ లొకేషన్, మైక్రోఫోన్ యాక్సెస్‌ను ఉద్దేశపూర్వకంగా నియంత్రిస్తాయి. ప్రతి అనుమతి అవసరమైన క్షణంలోనే, కారణం ముందే చెప్పి అడుగుతాం.",
@@ -525,7 +531,7 @@ export const te: Dict = {
   "hero.device.noSignal": "సిగ్నల్ లేదు",
   "hero.device.ready": "సిద్ధం",
   "hero.device.on": "ఆన్",
-  "hero.device.planned": "ప్రణాళికలో",
+  "hero.device.planned": "పరీక్షలో",
   "a11y.skip": "విషయానికి వెళ్ళు",
   "a11y.home": "Todu హోమ్",
   "cta.previewNote": "ప్రివ్యూ బిల్డ్: డేటాబేస్ కనెక్ట్ కాలేదు, కాబట్టి ఏదీ నిల్వ కాలేదు.",
@@ -567,6 +573,12 @@ export const te: Dict = {
   "notFound.call": "112కి కాల్ చేయి",
   "dash.you": "మీరు",
   "dash.noValue": "నమోదు చేయలేదు",
+  "dash.invites": "ఆహ్వానాలు",
+  "dash.inviteBody": "{name} మిమ్మల్ని అత్యవసర స్పందనకర్తగా కోరుతున్నారు.",
+  "dash.accept": "అంగీకరించు",
+  "dash.decline": "తిరస్కరించు",
+  "dash.respondingFor": "మీరు స్పందించేది వీరి కోసం",
+  "dash.respondingNone": "ఇంకా ఎవరూ లేరు. Todu యాప్ నుంచి ఈ ఫోన్ నంబర్‌ను ఆహ్వానించమని వారిని అడగండి.",
 };
 
 export const hi: Dict = {
@@ -608,7 +620,7 @@ export const hi: Dict = {
     "बड़े कैंसिल बटन वाला काउंटडाउन ग़लत अलार्म रोकता है। इसके बजाय अपना ड्यूरेस पिन डालें और Todu ऊपर से रद्द दिखाते हुए चुपचाप मदद भेज देता है।",
   "how.s3.t": "जो मायने रखते हैं, सब एक साथ",
   "how.s3.d":
-    "लाइव लोकेशन और आपका रास्ता आपके सर्कल तक पहुँचता है। पुश, SMS और वॉइस कॉल साथ जाते हैं, ताकि एक छूटा नोटिफ़िकेशन छूटी हुई इमरजेंसी न बने।",
+    "लाइव लोकेशन और आपका रास्ता आपके सर्कल तक पहुँचता है। पुश अलर्ट और SMS साथ जाते हैं, ताकि एक छूटा नोटिफ़िकेशन छूटी हुई इमरजेंसी न बने।",
   "how.s4.t": "मदद आती है, और आप देख सकते हैं",
   "how.s4.d":
     "रेस्पॉन्डर पुष्टि करते हैं, पहुँचने का समय बताते हैं और आपस में तालमेल रखते हैं, ताकि तीन लोग एक ही जगह न पहुँचें और चौथा यह न मान ले कि कोई और चला गया।",
@@ -632,7 +644,7 @@ export const hi: Dict = {
   "offline.l4.t": "आसपास के फ़ोन तक ब्लूटूथ रिले",
   "offline.l4.d":
     "आपकी चेतावनी फ़ोन से फ़ोन तक, हर छलाँग में लगभग 100 मीटर जाती है। जिस भी डिवाइस को इंटरनेट मिलता है, वह उसे आपके सर्कल तक पहुँचा देता है। यह कोशिश है, गारंटी नहीं।",
-  "offline.l4.tag": "योजना में",
+  "offline.l4.tag": "परीक्षण में",
   "offline.l5.t": "सायरन, टॉर्च, स्क्रीन फ़्लैश",
   "offline.l5.d":
     "जब हर रेडियो फ़ेल हो जाए, तो उन लोगों को दिखें जो आपको पहले से देख और सुन सकते हैं।",
@@ -656,9 +668,9 @@ export const hi: Dict = {
   "limits.l4.t": "आपका फ़ोन ही अड़चन बन सकता है",
   "limits.l4.d":
     "Xiaomi, Realme, Oppo और Vivo बैकग्राउंड ऐप्स को सख़्ती से बंद कर देते हैं। Todu आपके फ़ोन के लिए ख़ास सेटअप विज़ार्ड देता है, और एक हेल्थ डैशबोर्ड जो सुरक्षा चुपचाप बंद होने पर टोकता रहता है।",
-  "limits.l5.t": "ब्लूटूथ रिले योजना में है, और सिर्फ़ कोशिश",
+  "limits.l5.t": "ब्लूटूथ रिले सिर्फ़ कोशिश है",
   "limits.l5.d":
-    "यह पहली रिलीज़ में नहीं है। आने पर भी इसके लिए लगभग 100 मीटर के भीतर कोई दूसरा Todu उपयोगकर्ता चाहिए, इसलिए रात तीन बजे सुनसान मैदान में यह आपको नहीं बचाएगा। सायरन और 112 तब भी मौजूद रहेंगे।",
+    "यह बन चुका है पर अभी मैदान में परखा नहीं गया। इसके लिए लगभग 100 मीटर के भीतर कोई दूसरा Todu उपयोगकर्ता चाहिए, इसलिए रात तीन बजे सुनसान मैदान में यह आपको नहीं बचाएगा। सायरन और 112 तब भी मौजूद रहेंगे।",
   "limits.l6.t": "अनुमतियाँ पूरी तरह आसान नहीं हो सकतीं",
   "limits.l6.d":
     "एंड्रॉयड और iOS बैकग्राउंड लोकेशन और माइक्रोफ़ोन को जानबूझकर सीमित रखते हैं। हम हर अनुमति ठीक उसी समय माँगते हैं जब उसकी ज़रूरत बनती है, और पहले कारण बताते हैं।",
@@ -803,7 +815,7 @@ export const hi: Dict = {
   "hero.device.noSignal": "सिग्नल नहीं",
   "hero.device.ready": "तैयार",
   "hero.device.on": "चालू",
-  "hero.device.planned": "योजना में",
+  "hero.device.planned": "परीक्षण में",
   "a11y.skip": "सामग्री पर जाएँ",
   "a11y.home": "Todu होम",
   "cta.previewNote": "प्रीव्यू बिल्ड: कोई डेटाबेस जुड़ा नहीं है, इसलिए कुछ भी सहेजा नहीं गया।",
@@ -845,6 +857,12 @@ export const hi: Dict = {
   "notFound.call": "112 पर कॉल करें",
   "dash.you": "आप",
   "dash.noValue": "दर्ज नहीं",
+  "dash.invites": "आमंत्रण",
+  "dash.inviteBody": "{name} आपको आपातकालीन रेस्पॉन्डर बनाना चाहते हैं।",
+  "dash.accept": "स्वीकार करें",
+  "dash.decline": "अस्वीकार करें",
+  "dash.respondingFor": "आप इनके लिए रेस्पॉन्डर हैं",
+  "dash.respondingNone": "अभी कोई नहीं। उनसे कहें कि Todu ऐप से इस फ़ोन नंबर को आमंत्रित करें।",
 };
 
 export const dictionaries: Record<Locale, Dict> = { en, te, hi };

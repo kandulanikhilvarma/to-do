@@ -6,10 +6,12 @@ import { LanguageSwitcher, useLang } from "@/components/lang";
 import { Logo, cn } from "@/components/site";
 import {
   acknowledge,
+  answerInvite,
   currentUser,
   hasSupabaseConfig,
   loadEventDetail,
   loadEvents,
+  loadInvites,
   normalizePhone,
   onAuthChange,
   sendOtp,
@@ -17,6 +19,7 @@ import {
   subscribeToEvent,
   verifyOtp,
   type EventSource,
+  type Invite,
   type ResponderStatus,
   type SosEvent,
   type SosState,
@@ -281,6 +284,8 @@ export function ResponderConsole() {
           {notice ? t(notice) : ""}
         </p>
 
+        {live && signedIn && <InvitesPanel />}
+
         {auth === "unknown" ? (
           <p className="mt-10 text-sm text-ink-faint">{t("dash.loading")}</p>
         ) : auth === "signed_out" ? (
@@ -351,6 +356,89 @@ export function ResponderConsole() {
         )}
       </main>
     </div>
+  );
+}
+
+/** Invitations to become someone responder, and who this responder covers.
+ *  Accepting is what makes their SOS events visible here. */
+function InvitesPanel() {
+  const { t } = useLang();
+  const [pending, setPending] = useState<Invite[]>([]);
+  const [respondingFor, setRespondingFor] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(
+    () =>
+      loadInvites()
+        .then((data) => {
+          setPending(data.pending);
+          setRespondingFor(data.respondingFor);
+        })
+        .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e))),
+    [],
+  );
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function answer(connectionId: string, accept: boolean) {
+    const failure = await answerInvite(connectionId, accept);
+    if (failure) setError(failure);
+    await load();
+  }
+
+  return (
+    <section className="mt-6 grid gap-4 md:grid-cols-2">
+      <div className="rounded-xl border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-faint">
+          {t("dash.invites")}
+        </h2>
+        <ul className="mt-3 flex flex-col gap-3">
+          {pending.map((inv) => (
+            <li key={inv.connectionId} className="flex flex-wrap items-center gap-3">
+              <span className="flex-1 text-sm text-ink">
+                {t("dash.inviteBody", { name: inv.ownerName })}
+              </span>
+              <button
+                type="button"
+                onClick={() => void answer(inv.connectionId, true)}
+                className="rounded-lg bg-brand px-3 py-2 text-sm font-semibold text-bg hover:bg-brand/90"
+              >
+                {t("dash.accept")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void answer(inv.connectionId, false)}
+                className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink hover:border-ink-faint"
+              >
+                {t("dash.decline")}
+              </button>
+            </li>
+          ))}
+          {pending.length === 0 && <li className="text-sm text-ink-faint">{t("dash.noneYet")}</li>}
+        </ul>
+        {error && (
+          <p role="alert" className="mt-3 text-sm text-sos">
+            {error}
+          </p>
+        )}
+      </div>
+      <div className="rounded-xl border border-line bg-surface p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-faint">
+          {t("dash.respondingFor")}
+        </h2>
+        {respondingFor.length > 0 ? (
+          <ul className="mt-3 flex flex-col gap-1 text-sm text-ink">
+            {respondingFor.map((who) => (
+              <li key={who}>{who}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-ink-faint">{t("dash.respondingNone")}</p>
+        )}
+      </div>
+    </section>
   );
 }
 

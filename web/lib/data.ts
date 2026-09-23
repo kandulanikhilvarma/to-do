@@ -417,3 +417,36 @@ export function demoEvents(): SosEvent[] {
     },
   ];
 }
+
+/* ------------------------------------------------------------- invites -- */
+
+export type Invite = { connectionId: string; ownerName: string };
+
+/** Invitations waiting for this responder, and the people they already
+ *  respond for. Both come from security-definer functions scoped to the
+ *  caller (supabase migration 0006). */
+export async function loadInvites(): Promise<{ pending: Invite[]; respondingFor: string[] }> {
+  const supabase = getSupabase();
+  if (!supabase) return { pending: [], respondingFor: [] };
+  const [pending, active] = await Promise.all([
+    supabase.rpc("my_invites"),
+    supabase.rpc("responding_for"),
+  ]);
+  return {
+    pending: ((pending.data ?? []) as { connection_id: string; owner_name: string }[]).map((r) => ({
+      connectionId: r.connection_id,
+      ownerName: r.owner_name,
+    })),
+    respondingFor: ((active.data ?? []) as { owner_name: string }[]).map((r) => r.owner_name),
+  };
+}
+
+export async function answerInvite(connectionId: string, accept: boolean): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return "not configured";
+  const { error } = await supabase
+    .from("connections")
+    .update({ status: accept ? "active" : "revoked" })
+    .eq("id", connectionId);
+  return error ? error.message : null;
+}

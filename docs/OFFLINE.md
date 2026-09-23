@@ -27,7 +27,7 @@ flowchart TD
 | SMS to contacts | Composer only; `SEND_SMS` gated to default handlers | Composer only, never programmatic | Yes, always one tap |
 | Direct dial 112 | Yes | Yes | Yes |
 | Android ELS | Automatic at OS level | N/A | Relied on, not integrated |
-| BLE relay | Possible with a foreground service | Background BLE restricted | **No** - licensed SDK not wired |
+| BLE relay | Bridgefy mesh, hybrid mode | Background BLE restricted | Yes, with a Bridgefy licence; signed payloads; not field tested |
 | Siren, torch, screen | Yes | Yes | Yes |
 | Satellite SOS | No third party SDK | No third party SDK | **Never** |
 

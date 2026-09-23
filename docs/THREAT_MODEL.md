@@ -47,6 +47,27 @@ Tested as owner, invited responder and stranger in `supabase/tests/rls.test.mjs`
 - Live pings travel on private Realtime channels `sos:<event id>`: the owner
   sends, active connections read, nobody else does.
 
+## Bluetooth relay
+
+A relay node carries someone else SOS to the server. Two risks, two answers:
+
+- **Forgery.** Payloads are signed with HMAC-SHA256 using a per-user secret
+  issued while online and kept in the keystore. `sos-relay` rejects anything
+  that does not verify, so a relay node cannot raise an alert in another name.
+- **Duplication and replay.** Every copy carries the phone generated
+  `client_id`, so all relayed copies and the phone own upload become one event;
+  payloads older than 24 hours are refused and a resolved event is never reopened.
+
+Accepted weakness: the payload is signed, not encrypted. Nearby Todu phones in
+Bluetooth range can read the user id and coordinates of an SOS they relay.
+
+## Invites
+
+`invite_contact` answers "sent" whether or not a number belongs to a Todu user,
+and pending connections look identical to invites for unregistered numbers.
+Otherwise the invite flow would tell a stalker whether their target uses a
+safety app.
+
 ## Data handling
 
 - Medical data is minimised to what a first responder acts on: blood group,
