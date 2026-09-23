@@ -21,6 +21,8 @@ export type Settings = {
   silentMode: boolean;
   countdownSeconds: number;
   locale: Locale;
+  /** Carry SOS alerts heard from nearby Todu phones to the server. */
+  relayForOthers: boolean;
 };
 
 const DEFAULTS: Settings = {
@@ -30,6 +32,7 @@ const DEFAULTS: Settings = {
   silentMode: false,
   countdownSeconds: 8,
   locale: "en",
+  relayForOthers: true,
 };
 
 const kv = createMMKV({ id: "todu.settings" });

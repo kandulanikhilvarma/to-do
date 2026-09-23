@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Camera } from "expo-camera";
 import * as Device from "expo-device";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
@@ -18,7 +19,9 @@ import { sendOtp, signOut, supabase, syncProfile, verifyOtp } from "../lib/backe
 import { localeNames, locales, useT, type Key } from "../lib/i18n";
 import { normalizePhone } from "../lib/phone";
 import { validatePins, type PinError } from "../lib/pin-rules";
+import { pushState } from "../lib/push";
 import { size as queuedCount } from "../lib/queue";
+import { relayStatus } from "../lib/relay";
 import { getSettings, loadPins, savePins, updateSettings, useSettings } from "../lib/settings";
 import { theme } from "../lib/theme";
 
@@ -58,15 +61,21 @@ function oemGuideUrl(brand: string): string {
   return OEM_GUIDES.has(slug) ? `https://dontkillmyapp.com/${vendor}` : "https://dontkillmyapp.com/";
 }
 
-type Health = { location: boolean; background: boolean; notifications: boolean };
+type Health = { location: boolean; background: boolean; notifications: boolean; camera: boolean };
 
 async function readHealth(): Promise<Health> {
-  const [fg, bg, notif] = await Promise.all([
+  const [fg, bg, notif, camera] = await Promise.all([
     Location.getForegroundPermissionsAsync(),
     Location.getBackgroundPermissionsAsync(),
     Notifications.getPermissionsAsync(),
+    Camera.getCameraPermissionsAsync(),
   ]);
-  return { location: fg.granted, background: bg.granted, notifications: notif.granted };
+  return {
+    location: fg.granted,
+    background: bg.granted,
+    notifications: notif.granted,
+    camera: camera.granted,
+  };
 }
 
 export default function SettingsScreen() {
@@ -128,7 +137,9 @@ export default function SettingsScreen() {
         ? await Location.requestForegroundPermissionsAsync()
         : kind === "background"
           ? await Location.requestBackgroundPermissionsAsync()
-          : await Notifications.requestPermissionsAsync();
+          : kind === "camera"
+            ? await Camera.requestCameraPermissionsAsync()
+            : await Notifications.requestPermissionsAsync();
     // Once permanently denied, only the system settings screen can undo it.
     if (!result.granted && !result.canAskAgain) await Linking.openSettings();
     refresh();
@@ -165,7 +176,9 @@ export default function SettingsScreen() {
     { kind: "location", label: "health.location", why: "health.locationWhy" },
     { kind: "background", label: "health.background", why: "health.backgroundWhy" },
     { kind: "notifications", label: "health.notifications", why: "health.notificationsWhy" },
+    { kind: "camera", label: "health.camera", why: "health.cameraWhy" },
   ];
+  const relay = relayStatus();
 
   return (
     <ScrollView contentContainerStyle={s.page} keyboardShouldPersistTaps="handled">
@@ -197,6 +210,22 @@ export default function SettingsScreen() {
           value={settings.silentMode}
           onValueChange={(v) => updateSettings({ silentMode: v })}
           accessibilityLabel={t("settings.silent")}
+          trackColor={{ true: theme.brand, false: theme.line }}
+        />
+      </View>
+
+      <View style={s.switchRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.label}>{t("settings.relay")}</Text>
+          <Text style={s.hint}>{t("settings.relayHint")}</Text>
+          <Text style={relay.state === "failed" ? s.warn : s.hint}>
+            {t(`relay.${relay.state}` as Key, { msg: relay.failure })}
+          </Text>
+        </View>
+        <Switch
+          value={settings.relayForOthers}
+          onValueChange={(v) => updateSettings({ relayForOthers: v })}
+          accessibilityLabel={t("settings.relay")}
           trackColor={{ true: theme.brand, false: theme.line }}
         />
       </View>
@@ -322,7 +351,12 @@ export default function SettingsScreen() {
             <Text style={s.fixLabel}>{t("account.signOut")}</Text>
           </Pressable>
         </View>
-      ) : (
+      ) : null}
+      {supabase && signedInPhone ? (
+        <Text style={pushState() === "on" ? s.ok : s.hint}>
+          {pushState() === "on" ? t("account.pushOn") : t("account.pushUnavailable")}
+        </Text>
+      ) : supabase ? (
         <View style={{ gap: 10 }}>
           <TextInput
             value={phone}
@@ -357,7 +391,7 @@ export default function SettingsScreen() {
             </Text>
           </Pressable>
         </View>
-      )}
+      ) : null}
       {accountError && (
         <Text style={s.warn} accessibilityLiveRegion="polite">
           {accountError}

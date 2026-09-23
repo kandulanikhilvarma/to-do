@@ -4,11 +4,14 @@
   "main": "index.ts",
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
+    "bridgefy-react-native": "^1.2.4",
     "expo": "~57.0.24",
     "expo-asset": "~57.0.18",
     "expo-audio": "~57.0.5",
     "expo-battery": "~57.0.3",
+    "expo-camera": "~57.0.5",
     "expo-constants": "~57.0.19",
+    "expo-crypto": "~57.0.3",
     "expo-dev-client": "~57.0.19",
     "expo-device": "~57.0.2",
     "expo-haptics": "~57.0.3",
@@ -38,8 +41,8 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "check": "node --experimental-strip-types --test lib/*.test.ts",
     "lint": "expo lint"
   },

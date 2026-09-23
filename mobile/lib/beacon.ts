@@ -2,20 +2,21 @@
 // can already hear you. Each part reports whether it actually started, so the
 // ladder never claims a siren that is not sounding.
 //
-// Screen flash is driven by the SOS screen (it needs the UI). The torch is not
-// wired in this build: it needs a mounted camera view, and is reported as such.
+// Screen flash is driven by the SOS screen (it needs the UI). The torch runs
+// through TorchHost and counts only once the camera reports ready.
 
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
 import * as Haptics from "expo-haptics";
+import { startTorch, stopTorch } from "./torch";
 
-export type BeaconReport = { siren: boolean; haptics: boolean };
+export type BeaconReport = { siren: boolean; haptics: boolean; torch: boolean };
 
 let player: AudioPlayer | null = null;
 let pulse: ReturnType<typeof setInterval> | null = null;
 
 export async function startBeacon(): Promise<BeaconReport> {
   stopBeacon();
-  const report: BeaconReport = { siren: false, haptics: false };
+  const report: BeaconReport = { siren: false, haptics: false, torch: false };
 
   try {
     // Play through the hardware silent switch: this is an emergency.
@@ -39,10 +40,12 @@ export async function startBeacon(): Promise<BeaconReport> {
     pulse = null;
   }
 
+  report.torch = await startTorch();
   return report;
 }
 
 export function stopBeacon(): void {
+  stopTorch();
   if (pulse) clearInterval(pulse);
   pulse = null;
   if (player) {

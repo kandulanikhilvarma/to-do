@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import * as Battery from "expo-battery";
+import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import * as Network from "expo-network";
@@ -25,6 +26,7 @@ import { startBeacon, stopBeacon } from "../lib/beacon";
 import { translate, useT, type Key, type Translate } from "../lib/i18n";
 import { dial112, runLadder, type Rung } from "../lib/ladder";
 import { enqueue, size as queuedCount } from "../lib/queue";
+import { broadcastSos } from "../lib/relay";
 import { getSettings, loadPins, useSettings } from "../lib/settings";
 import {
   reduce,
@@ -79,6 +81,7 @@ export default function SosScreen() {
   const configRef = useRef<SosConfig>({ countdownSeconds: 8, cancelPin: "", duressPin: "" });
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
   const batterySub = useRef<{ remove: () => void } | null>(null);
+  const relayTick = useRef<ReturnType<typeof setInterval> | null>(null);
   const dispatchRef = useRef<(event: SosEvent) => boolean>(() => false);
 
   const [hasCancelPin, setHasCancelPin] = useState(false);
@@ -110,6 +113,8 @@ export default function SosScreen() {
     void stopTracking();
     batterySub.current?.remove();
     batterySub.current = null;
+    if (relayTick.current) clearInterval(relayTick.current);
+    relayTick.current = null;
     setSirenOn(false);
     setFlashing(false);
   }, [stopTick]);
@@ -133,6 +138,7 @@ export default function SosScreen() {
     async (covert: boolean) => {
       const s = getSettings();
       const tr: Translate = (key, vars) => translate(s.locale, key, vars);
+      const clientId = sessionRef.current.clientId ?? Crypto.randomUUID();
       setWorking(true);
       beginEvent();
 
@@ -151,7 +157,19 @@ export default function SosScreen() {
         silent: s.silentMode,
         t: tr,
         broadcast: () =>
-          broadcastEvent({ fix, battery, silent: s.silentMode || covert, duress: covert }, online),
+          broadcastEvent(
+            { clientId, fix, battery, silent: s.silentMode || covert, duress: covert },
+            online,
+          ),
+        relay: () =>
+          broadcastSos({
+            cid: clientId,
+            lat: fix?.lat ?? null,
+            lng: fix?.lng ?? null,
+            acc: fix?.accuracy ?? null,
+            bat: battery,
+            ts: Date.now(),
+          }),
         startBeacon: async () => {
           const report = await startBeacon();
           setSirenOn(report.siren);
@@ -164,6 +182,23 @@ export default function SosScreen() {
         commit({ ...sessionRef.current, rungs });
         await startTracking(covert, { title: tr("track.title"), body: tr("track.body") });
         watchBattery();
+        if (!rungs.some((r) => r.rung === "realtime" && r.delivered)) {
+          // No server has this SOS yet: keep offering it to any Todu phone
+          // that comes into Bluetooth range. Same client id, so one event.
+          if (relayTick.current) clearInterval(relayTick.current);
+          relayTick.current = setInterval(() => {
+            void readFix(false).then((f) =>
+              broadcastSos({
+                cid: clientId,
+                lat: f?.lat ?? null,
+                lng: f?.lng ?? null,
+                acc: f?.accuracy ?? null,
+                bat: null,
+                ts: Date.now(),
+              }),
+            );
+          }, 60_000);
+        }
       } else {
         stopBeacon();
         setSirenOn(false);
@@ -215,6 +250,11 @@ export default function SosScreen() {
         context,
         rungs: effects.includes("run_ladder") ? [] : current.rungs,
         covertDismissed: context.covert ? current.covertDismissed : false,
+        clientId: effects.includes("run_ladder")
+          ? Crypto.randomUUID()
+          : context.state === "armed"
+            ? null
+            : current.clientId,
       });
       for (const effect of effects) runEffect(effect, context);
       return true;
@@ -242,6 +282,7 @@ export default function SosScreen() {
     return () => {
       stopTick();
       batterySub.current?.remove();
+      if (relayTick.current) clearInterval(relayTick.current);
     };
   }, [runEffect, stopTick, watchBattery]);
 

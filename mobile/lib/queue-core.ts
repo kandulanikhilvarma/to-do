@@ -14,7 +14,7 @@ export type KeyValue = {
 
 export type QueuedItem = {
   id: string;
-  kind: "event" | "ping" | "resolve";
+  kind: "event" | "ping" | "resolve" | "relay";
   payload: Record<string, unknown>;
   queuedAt: number;
   attempts: number;

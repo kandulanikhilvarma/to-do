@@ -11,12 +11,19 @@ export type SosSession = {
   rungs: RungResult[];
   /** Covert alert whose fake "cancelled" screen was dismissed. */
   covertDismissed: boolean;
+  /** Identity of the live SOS, shared by every copy and relay of it. */
+  clientId: string | null;
 };
 
 const kv = createMMKV({ id: "todu.sos" });
 const KEY = "session";
 
-const EMPTY: SosSession = { context: initialContext, rungs: [], covertDismissed: false };
+const EMPTY: SosSession = {
+  context: initialContext,
+  rungs: [],
+  covertDismissed: false,
+  clientId: null,
+};
 
 export function loadSession(): SosSession {
   const raw = kv.getString(KEY);

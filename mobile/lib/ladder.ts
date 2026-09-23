@@ -12,6 +12,7 @@ import * as SMS from "expo-sms";
 import type { BroadcastOutcome, Fix } from "./backend";
 import type { BeaconReport } from "./beacon";
 import type { Key, Translate } from "./i18n";
+import type { BroadcastResult } from "./relay";
 import type { Contact } from "./settings";
 
 export type Rung = "realtime" | "sms" | "dial112" | "ble" | "beacon";
@@ -26,7 +27,16 @@ export type LadderInput = {
   silent: boolean;
   t: Translate;
   broadcast: () => Promise<BroadcastOutcome>;
+  relay: () => Promise<BroadcastResult>;
   startBeacon: () => Promise<BeaconReport>;
+};
+
+const BLE: Record<BroadcastResult, Key> = {
+  sent: "d.bleSent",
+  unconfigured: "d.bleUnconfigured",
+  not_running: "d.bleNotRunning",
+  no_identity: "d.bleNoIdentity",
+  failed: "d.bleFailed",
 };
 
 const OUTCOME: Record<BroadcastOutcome, Key> = {
@@ -65,6 +75,14 @@ async function smsRung(input: LadderInput): Promise<RungResult> {
     : { rung: "sms", delivered: false, detail: t("d.smsClosed") };
 }
 
+/** The mesh gives no delivery receipt, so even a successful broadcast is
+ *  reported as sent, never as delivered. Covert mode still broadcasts: it
+ *  shows nothing on screen and makes no sound. */
+async function bleRung(input: LadderInput): Promise<RungResult> {
+  const result = await input.relay().catch((): BroadcastResult => "failed");
+  return { rung: "ble", delivered: false, detail: input.t(BLE[result]) };
+}
+
 async function beaconRung(input: LadderInput): Promise<RungResult> {
   const { t } = input;
   if (input.covert) return { rung: "beacon", delivered: false, detail: t("d.covert") };
@@ -74,11 +92,11 @@ async function beaconRung(input: LadderInput): Promise<RungResult> {
   const parts = [
     report.siren ? t("d.sirenOn") : t("d.sirenFailed"),
     ...(report.haptics ? [t("d.hapticsOn")] : []),
-    t("d.torchOff"),
+    report.torch ? t("d.torchOn") : t("d.torchOff"),
   ];
   return {
     rung: "beacon",
-    delivered: report.siren || report.haptics,
+    delivered: report.siren || report.haptics || report.torch,
     detail: parts.join(", "),
   };
 }
@@ -95,8 +113,7 @@ export async function runLadder(input: LadderInput): Promise<RungResult[]> {
   // broadcast succeeded: it is the only path that reaches a phone number.
   results.push(await smsRung(input));
   results.push({ rung: "dial112", delivered: false, detail: t("d.dialReady") });
-  // Bridgefy is a licensed SDK and is not wired in. Say so, never fake it.
-  results.push({ rung: "ble", delivered: false, detail: t("d.bleOff") });
+  results.push(await bleRung(input));
   results.push(await beaconRung(input));
   return results;
 }

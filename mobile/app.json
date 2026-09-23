@@ -46,7 +46,15 @@
         "BLUETOOTH_SCAN",
         "BLUETOOTH_ADVERTISE",
         "BLUETOOTH_CONNECT",
-        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "CAMERA",
+        "FOREGROUND_SERVICE_CONNECTED_DEVICE"
+      ],
+      "blockedPermissions": [
+        "android.permission.SEND_SMS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "plugins": [
@@ -69,7 +77,16 @@
           "backgroundColor": "#07090c"
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Todu uses the camera flash as a torch beacon during an SOS. It never records.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "./plugins/with-bridgefy"
     ],
     "experiments": {
       "typedRoutes": true
