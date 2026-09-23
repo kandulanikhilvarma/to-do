@@ -56,8 +56,15 @@ async function readFix(allowPrompt: boolean): Promise<Fix | null> {
     if (!perm.granted) return null;
     // Indoors a fresh fix can take minutes. Cap the wait so the SMS step is
     // never held hostage by the sky, then fall back to the last known fix.
+    // Google's "Location Accuracy" dialog only on the first, non-covert fix:
+    // over a duress screen it would show an onlooker that something is running.
     const fresh = await Promise.race([
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+      // Declining that dialog rejects; fall through to the last known fix
+      // instead of sending the SOS with no location at all.
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        mayShowUserSettingsDialog: allowPrompt,
+      }).catch(() => null),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000)),
     ]);
     const pos = fresh ?? (await Location.getLastKnownPositionAsync());

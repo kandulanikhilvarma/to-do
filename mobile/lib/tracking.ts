@@ -40,6 +40,8 @@ let foreground: Location.LocationSubscription | null = null;
 
 const UPDATE = {
   accuracy: Location.Accuracy.High,
+  // The first fix already offered it; tracking also runs in covert mode.
+  mayShowUserSettingsDialog: false,
   timeInterval: 30_000,
   distanceInterval: 20,
 };

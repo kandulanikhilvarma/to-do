@@ -24,7 +24,11 @@ cancel. In covert mode the app therefore:
 - never opens the SMS composer, never sounds the siren, never flashes;
 - never starts the Android foreground service, whose persistent notification
   would reveal the alert, so location streams only while the app is open;
-- never raises a permission prompt.
+- never raises a permission prompt, nor Google's "Location Accuracy" dialog.
+
+Limit: Android shows its own location icon in the status bar while any app
+reads location, and no app can hide it. An observer who knows to look can
+see it during a covert alert.
 
 The live broadcast still goes out if there is data and a signed-in session.
 The user ends a covert alert with a hidden gesture: a three second press on
