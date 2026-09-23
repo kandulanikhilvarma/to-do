@@ -50,6 +50,17 @@ test("resolving stops the ladder and can rearm", () => {
   assert.ok(out.effects.includes("stop_ladder"));
 });
 
+test("an empty PIN with no duress PIN set keeps counting, never covert", () => {
+  // Found on the emulator: "" === "" made an empty Confirm a hidden alert
+  // behind a "Cancelled" screen.
+  const noDuress = { ...config, duressPin: "" };
+  const armed = reduce(initialContext, { type: "TRIGGER" }, noDuress).context;
+  const out = reduce(armed, { type: "CANCEL", pin: "" }, noDuress);
+  assert.equal(out.context.state, "countdown");
+  assert.equal(out.context.covert, false);
+  assert.ok(!out.effects.includes("run_ladder"));
+});
+
 test("with a cancel PIN set, cancelling without it keeps counting", () => {
   const out = run([{ type: "TRIGGER" }, { type: "CANCEL" }]);
   assert.equal(out.context.state, "countdown");

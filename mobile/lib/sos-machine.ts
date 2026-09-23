@@ -87,7 +87,8 @@ export function reduce(
 
       if (event.type === "CANCEL") {
         // Duress PIN looks identical to a successful cancel, but escalates.
-        if (event.pin === config.duressPin) {
+        // An unset duress PIN is "", which must not match an empty entry.
+        if (config.duressPin !== "" && event.pin === config.duressPin) {
           return {
             context: {
               state: "broadcasting",
