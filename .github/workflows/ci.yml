@@ -55,4 +55,4 @@ jobs:
       # fan-out and relay cores against provider request formats.
       - run: npm test
       # Edge Functions typecheck under the Deno release Supabase runs.
-      - run: npx --yes deno@2.9.6 check functions/sos-fanout/index.ts functions/sos-relay/index.ts
+      - run: npx --yes deno@2.9.6 check --node-modules-dir=none functions/sos-fanout/index.ts functions/sos-relay/index.ts
