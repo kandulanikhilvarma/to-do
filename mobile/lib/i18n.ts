@@ -106,6 +106,10 @@ const en = {
   "settings.silent": "Silent mode",
   "settings.silentHint":
     "No siren and no screen flash during an SOS. Use it when noise could put you in more danger.",
+  "settings.shake": "Shake to send SOS",
+  "settings.shakeHint": "Shake the phone hard three times to start the countdown. Works while Todu is open.",
+  "settings.fall": "Fall detection",
+  "settings.fallHint": "Starts the countdown after a hard fall. Works while Todu is open, and you can still cancel.",
   "settings.countdown": "Countdown",
   "settings.seconds": "{n} s",
   "settings.pins": "PINs",
@@ -278,6 +282,10 @@ const te: Dict = {
   "settings.silent": "సైలెంట్ మోడ్",
   "settings.silentHint":
     "SOS సమయంలో సైరన్, స్క్రీన్ ఫ్లాష్ ఉండవు. శబ్దం మిమ్మల్ని మరింత ప్రమాదంలో పడేస్తుందనుకుంటే వాడండి.",
+  "settings.shake": "SOS కోసం ఫోన్‌ను కదిలించండి",
+  "settings.shakeHint": "కౌంట్‌డౌన్ ప్రారంభించడానికి ఫోన్‌ను మూడుసార్లు గట్టిగా కదిలించండి. Todu తెరిచి ఉన్నప్పుడు పనిచేస్తుంది.",
+  "settings.fall": "పడిపోవడాన్ని గుర్తించడం",
+  "settings.fallHint": "గట్టిగా పడిపోయిన తర్వాత కౌంట్‌డౌన్ ప్రారంభిస్తుంది. Todu తెరిచి ఉన్నప్పుడు పనిచేస్తుంది, మీరు ఇంకా రద్దు చేయవచ్చు.",
   "settings.countdown": "కౌంట్‌డౌన్",
   "settings.seconds": "{n} సె",
   "settings.pins": "పిన్‌లు",
@@ -447,6 +455,10 @@ const hi: Dict = {
   "settings.silent": "साइलेंट मोड",
   "settings.silentHint":
     "SOS के दौरान न सायरन, न स्क्रीन फ़्लैश। तब इस्तेमाल करें जब आवाज़ आपको और ख़तरे में डाल सकती हो।",
+  "settings.shake": "SOS के लिए फ़ोन हिलाएँ",
+  "settings.shakeHint": "काउंटडाउन शुरू करने के लिए फ़ोन को तीन बार ज़ोर से हिलाएँ। Todu खुला होने पर काम करता है।",
+  "settings.fall": "गिरने की पहचान",
+  "settings.fallHint": "ज़ोर से गिरने के बाद काउंटडाउन शुरू करता है। Todu खुला होने पर काम करता है, और आप फिर भी रद्द कर सकते हैं।",
   "settings.countdown": "काउंटडाउन",
   "settings.seconds": "{n} से.",
   "settings.pins": "पिन",

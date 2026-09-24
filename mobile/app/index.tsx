@@ -13,7 +13,8 @@ import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import * as Network from "expo-network";
-import { Link, useFocusEffect } from "expo-router";
+import { Link, router, useFocusEffect } from "expo-router";
+import { Accelerometer } from "expo-sensors";
 import {
   beginEvent,
   broadcastEvent,
@@ -28,6 +29,7 @@ import { translate, useT, type Key, type Translate } from "../lib/i18n";
 import { dial112, runLadder, type Rung } from "../lib/ladder";
 import { enqueue, size as queuedCount } from "../lib/queue";
 import { broadcastSos } from "../lib/relay";
+import { fallDetector, shakeDetector } from "../lib/motion-core";
 import { responderEvents, type Responder } from "../lib/responders";
 import { getSettings, loadPins, useSettings } from "../lib/settings";
 import {
@@ -354,6 +356,27 @@ export default function SosScreen() {
     setPinWrong(false);
     dispatch({ type: "TRIGGER" });
   }, [dispatch]);
+
+  // Shake and fall only start the countdown, never the alert itself, and only
+  // while Todu is open: a background accelerometer would need a foreground
+  // service running all day, which Android and Play both penalise.
+  const { shakeToTrigger, fallDetection } = settings;
+  useEffect(() => {
+    if (!shakeToTrigger && !fallDetection) return;
+    const shake = shakeDetector();
+    const fall = fallDetector();
+    Accelerometer.setUpdateInterval(50);
+    const sub = Accelerometer.addListener(({ x, y, z }) => {
+      const sample = { x, y, z, t: Date.now() };
+      const shook = shakeToTrigger && shake(sample);
+      const fell = fallDetection && fall(sample);
+      if ((shook || fell) && sessionRef.current.context.state === "armed") {
+        router.navigate("/");
+        trigger();
+      }
+    });
+    return () => sub.remove();
+  }, [shakeToTrigger, fallDetection, trigger]);
 
   const submitCancel = useCallback(() => {
     const changed = dispatch({ type: "CANCEL", pin: hasCancelPin ? pin : undefined });

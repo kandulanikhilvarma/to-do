@@ -238,6 +238,32 @@ export default function SettingsScreen() {
 
       <View style={s.switchRow}>
         <View style={{ flex: 1 }}>
+          <Text style={s.label}>{t("settings.shake")}</Text>
+          <Text style={s.hint}>{t("settings.shakeHint")}</Text>
+        </View>
+        <Switch
+          value={settings.shakeToTrigger}
+          onValueChange={(v) => updateSettings({ shakeToTrigger: v })}
+          accessibilityLabel={t("settings.shake")}
+          trackColor={{ true: theme.brand, false: theme.line }}
+        />
+      </View>
+
+      <View style={s.switchRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.label}>{t("settings.fall")}</Text>
+          <Text style={s.hint}>{t("settings.fallHint")}</Text>
+        </View>
+        <Switch
+          value={settings.fallDetection}
+          onValueChange={(v) => updateSettings({ fallDetection: v })}
+          accessibilityLabel={t("settings.fall")}
+          trackColor={{ true: theme.brand, false: theme.line }}
+        />
+      </View>
+
+      <View style={s.switchRow}>
+        <View style={{ flex: 1 }}>
           <Text style={s.label}>{t("settings.relay")}</Text>
           <Text style={s.hint}>{t("settings.relayHint")}</Text>
           <Text style={relay.state === "failed" ? s.warn : s.hint}>

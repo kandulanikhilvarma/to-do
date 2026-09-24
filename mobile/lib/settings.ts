@@ -26,6 +26,10 @@ export type Settings = {
   relayForOthers: boolean;
   /** Light, dark, or follow the phone. */
   appearance: Appearance;
+  /** Start the countdown on three hard shakes (while Todu is open). */
+  shakeToTrigger: boolean;
+  /** Start the countdown after free fall plus impact (while Todu is open). */
+  fallDetection: boolean;
 };
 
 const DEFAULTS: Settings = {
@@ -37,6 +41,8 @@ const DEFAULTS: Settings = {
   locale: "en",
   relayForOthers: true,
   appearance: "system",
+  shakeToTrigger: false,
+  fallDetection: false,
 };
 
 const kv = createMMKV({ id: "todu.settings" });
