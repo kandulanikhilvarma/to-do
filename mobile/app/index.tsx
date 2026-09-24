@@ -662,6 +662,9 @@ export default function SosScreen() {
           <Link href="/checkin" style={s.link}>
             {t("nav.checkin")}
           </Link>
+          <Link href="/fakecall" style={s.link}>
+            {t("nav.fakecall")}
+          </Link>
           <Link href="/circle" style={s.link}>
             {t("nav.circle")}
           </Link>
