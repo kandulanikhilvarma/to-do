@@ -14,7 +14,13 @@ import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import * as Network from "expo-network";
-import { Link, router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import {
+  Link,
+  router,
+  useFocusEffect,
+  useLocalSearchParams,
+  useRootNavigationState,
+} from "expo-router";
 import { Accelerometer } from "expo-sensors";
 import {
   beginEvent,
@@ -420,6 +426,11 @@ export default function SosScreen() {
   // Shake and fall only start the countdown, never the alert itself, and only
   // while Todu is open: a background accelerometer would need a foreground
   // service running all day, which Android and Play both penalise.
+  // expo-router throws if asked to navigate before the root navigator mounts,
+  // which is exactly when a cold start from the tile or widget arrives. The
+  // app opens on this screen anyway, so starting the countdown never waits.
+  const navReady = Boolean(useRootNavigationState()?.key);
+
   const { shakeToTrigger, fallDetection } = settings;
   useEffect(() => {
     if (!shakeToTrigger && !fallDetection) return;
@@ -431,21 +442,21 @@ export default function SosScreen() {
       const shook = shakeToTrigger && shake(sample);
       const fell = fallDetection && fall(sample);
       if ((shook || fell) && sessionRef.current.context.state === "armed") {
-        router.navigate("/");
+        if (navReady) router.navigate("/");
         trigger();
       }
     });
     return () => sub.remove();
-  }, [shakeToTrigger, fallDetection, trigger]);
+  }, [shakeToTrigger, fallDetection, trigger, navReady]);
 
   // The Quick Settings tile and home-screen widget open todu:///?trigger=...
   // They start the countdown, never the alert, so a pocket tap can be cancelled.
   const { trigger: shortcut } = useLocalSearchParams<{ trigger?: string }>();
   useEffect(() => {
-    if (!shortcut) return;
+    if (!shortcut || !navReady) return;
     router.setParams({ trigger: undefined });
     if (sessionRef.current.context.state === "armed") trigger();
-  }, [shortcut, trigger]);
+  }, [shortcut, trigger, navReady]);
 
   // A missed check-in starts the countdown, so a person who is fine can still
   // cancel it. Checked every 15 s and on open; the local notification covers
@@ -457,14 +468,14 @@ export default function SosScreen() {
       if (Date.now() < checkInDeadline) return;
       void endLocalCheckIn();
       if (sessionRef.current.context.state === "armed") {
-        router.navigate("/");
+        if (navReady) router.navigate("/");
         trigger();
       }
     };
     check();
     const id = setInterval(check, 15_000);
     return () => clearInterval(id);
-  }, [checkInDeadline, trigger]);
+  }, [checkInDeadline, trigger, navReady]);
 
   const submitCancel = useCallback(() => {
     const changed = dispatch({ type: "CANCEL", pin: hasCancelPin ? pin : undefined });
