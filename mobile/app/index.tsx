@@ -18,9 +18,9 @@ import {
   Link,
   router,
   useFocusEffect,
-  useLocalSearchParams,
   useRootNavigationState,
 } from "expo-router";
+import * as Linking from "expo-linking";
 import { Accelerometer } from "expo-sensors";
 import {
   beginEvent,
@@ -99,6 +99,10 @@ function responderLine(t: Translate, r: Responder): string {
   }
   return t(`resp.${r.status}`, { name });
 }
+
+/** The launch link is read once per process, so a cancelled countdown is not
+ *  restarted when the screen remounts. */
+let initialLinkHandled = false;
 
 function localT(): Translate {
   return (key, vars) => translate(getSettings().locale, key, vars);
@@ -450,13 +454,20 @@ export default function SosScreen() {
   }, [shakeToTrigger, fallDetection, trigger, navReady]);
 
   // The Quick Settings tile and home-screen widget open todu:///?trigger=...
-  // They start the countdown, never the alert, so a pocket tap can be cancelled.
-  const { trigger: shortcut } = useLocalSearchParams<{ trigger?: string }>();
+  // They start the countdown, never the alert, so a pocket tap can be
+  // cancelled. Read through Linking, not router params: on a cold start the
+  // router is not ready to have its params cleared, and must not be touched.
   useEffect(() => {
-    if (!shortcut || !navReady) return;
-    router.setParams({ trigger: undefined });
-    if (sessionRef.current.context.state === "armed") trigger();
-  }, [shortcut, trigger, navReady]);
+    const handle = (url: string | null) => {
+      if (url?.includes("trigger=") && sessionRef.current.context.state === "armed") trigger();
+    };
+    if (!initialLinkHandled) {
+      initialLinkHandled = true;
+      void Linking.getInitialURL().then(handle);
+    }
+    const sub = Linking.addEventListener("url", ({ url }) => handle(url));
+    return () => sub.remove();
+  }, [trigger]);
 
   // A missed check-in starts the countdown, so a person who is fine can still
   // cancel it. Checked every 15 s and on open; the local notification covers
