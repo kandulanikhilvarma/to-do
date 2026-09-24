@@ -378,3 +378,37 @@ test("delivery logs are readable by the event owner only", async () => {
     /row-level security/,
   );
 });
+
+test("check-ins are private to their owner", async () => {
+  await as(C, "insert into check_ins (user_id, deadline) values ($1, now() + interval '1 hour')", [C]);
+  assert.equal((await as(C, "select 1 from check_ins")).rows.length, 1);
+  assert.equal((await as(A, "select 1 from check_ins where user_id = $1", [C])).rows.length, 0);
+  await assert.rejects(
+    as(C, "insert into check_ins (user_id, deadline) values ($1, now())", [A]),
+    /row-level security/,
+  );
+  await as(C, "delete from check_ins");
+});
+
+test("a missed check-in opens one SOS event; future and live ones wait", async () => {
+  await db.query(
+    `insert into check_ins (user_id, deadline) values
+       ($1, now() - interval '1 minute'),
+       ($2, now() + interval '1 hour'),
+       ($3, now() - interval '1 minute')`,
+    [C, B, A],
+  );
+  const live = await db.query(
+    "select 1 from sos_events where user_id = $1 and state in ('broadcasting', 'acknowledged', 'enroute')",
+    [A],
+  );
+  assert.ok(live.rows.length > 0, "A already has a live SOS from setup");
+
+  const fired = await db.query("select fire_missed_check_ins() as n");
+  assert.equal(fired.rows[0].n, 1);
+
+  const opened = await db.query("select user_id from sos_events where from_check_in");
+  assert.deepEqual(opened.rows.map((r) => r.user_id), [C]);
+  const left = await db.query("select user_id from check_ins");
+  assert.deepEqual(left.rows.map((r) => r.user_id), [B]);
+});

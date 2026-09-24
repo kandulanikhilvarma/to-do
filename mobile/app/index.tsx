@@ -29,6 +29,7 @@ import { translate, useT, type Key, type Translate } from "../lib/i18n";
 import { dial112, runLadder, type Rung } from "../lib/ladder";
 import { enqueue, size as queuedCount } from "../lib/queue";
 import { broadcastSos } from "../lib/relay";
+import { clearServerCheckIn, endLocalCheckIn, useCheckIn } from "../lib/checkin";
 import { fallDetector, shakeDetector } from "../lib/motion-core";
 import { responderEvents, type Responder } from "../lib/responders";
 import { getSettings, loadPins, useSettings } from "../lib/settings";
@@ -243,6 +244,9 @@ export default function SosScreen() {
           break;
         case "cancel_countdown":
           stopTick();
+          // A cancelled countdown proves the person is fine, so a pending
+          // server check-in must not alert the circle a minute later.
+          void clearServerCheckIn();
           break;
         case "run_ladder":
           stopTick();
@@ -377,6 +381,25 @@ export default function SosScreen() {
     });
     return () => sub.remove();
   }, [shakeToTrigger, fallDetection, trigger]);
+
+  // A missed check-in starts the countdown, so a person who is fine can still
+  // cancel it. Checked every 15 s and on open; the local notification covers
+  // a backgrounded app and the server covers a dead phone.
+  const checkInDeadline = useCheckIn();
+  useEffect(() => {
+    if (checkInDeadline === null) return;
+    const check = () => {
+      if (Date.now() < checkInDeadline) return;
+      void endLocalCheckIn();
+      if (sessionRef.current.context.state === "armed") {
+        router.navigate("/");
+        trigger();
+      }
+    };
+    check();
+    const id = setInterval(check, 15_000);
+    return () => clearInterval(id);
+  }, [checkInDeadline, trigger]);
 
   const submitCancel = useCallback(() => {
     const changed = dispatch({ type: "CANCEL", pin: hasCancelPin ? pin : undefined });
@@ -624,7 +647,21 @@ export default function SosScreen() {
 
         <Text style={s.disclaimer}>{t("sos.disclaimer")}</Text>
 
+        {checkInDeadline !== null && view === "armed" && (
+          <Link href="/checkin" style={s.nudge}>
+            {t("checkin.banner", {
+              time: new Date(checkInDeadline).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            })}
+          </Link>
+        )}
+
         <View style={s.links}>
+          <Link href="/checkin" style={s.link}>
+            {t("nav.checkin")}
+          </Link>
           <Link href="/circle" style={s.link}>
             {t("nav.circle")}
           </Link>

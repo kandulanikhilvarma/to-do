@@ -75,17 +75,25 @@ async function loadBrief(admin: SupabaseClient, eventId: string, kind: Kind): Pr
     await sleep(1000);
   }
 
-  const { data } = await admin
-    .from("responder_events")
-    .select("person_name, lat, lng")
-    .eq("id", eventId)
-    .maybeSingle<BriefRow>();
+  const [{ data }, { data: origin }] = await Promise.all([
+    admin
+      .from("responder_events")
+      .select("person_name, lat, lng")
+      .eq("id", eventId)
+      .maybeSingle<BriefRow>(),
+    admin
+      .from("sos_events")
+      .select("from_check_in")
+      .eq("id", eventId)
+      .maybeSingle<{ from_check_in: boolean }>(),
+  ]);
 
   return {
     id: eventId,
     personName: data?.person_name ?? "",
     lat: located && data ? data.lat : null,
     lng: located && data ? data.lng : null,
+    fromCheckIn: origin?.from_check_in ?? false,
   };
 }
 

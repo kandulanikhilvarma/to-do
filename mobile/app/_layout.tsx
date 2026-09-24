@@ -89,6 +89,7 @@ export default function RootLayout() {
         <Stack.Screen name="circle" options={{ title: t("nav.circle") }} />
         <Stack.Screen name="profile" options={{ title: t("nav.profile") }} />
         <Stack.Screen name="settings" options={{ title: t("nav.settings") }} />
+        <Stack.Screen name="checkin" options={{ title: t("nav.checkin") }} />
       </Stack>
       <TorchHost />
     </>

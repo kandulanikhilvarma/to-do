@@ -368,6 +368,20 @@ export async function eventResponders(
   ).map((r) => ({ name: r.name ?? "", status: r.status, etaMinutes: r.eta_minutes }));
 }
 
+/** Mirror the check-in deadline to the server (null clears it). Returns
+ *  whether the server now matches, false when signed out or offline. */
+export async function setServerCheckIn(deadline: number | null): Promise<boolean> {
+  const uid = await userId();
+  if (!supabase || !uid) return false;
+  const { error } =
+    deadline === null
+      ? await supabase.from("check_ins").delete().eq("user_id", uid)
+      : await supabase
+          .from("check_ins")
+          .upsert({ user_id: uid, deadline: new Date(deadline).toISOString() });
+  return !error;
+}
+
 export async function isSignedIn(): Promise<boolean> {
   return (await userId()) !== null;
 }

@@ -165,3 +165,14 @@ test("without MSG91 configured, SMS is skipped and says why", async () => {
 test("phone numbers are masked in logs", () => {
   assert.equal(maskPhone("+919876543210"), "+91******3210");
 });
+
+test("a missed check-in says so instead of claiming an SOS press", () => {
+  const plan = planDeliveries(
+    "opened",
+    { ...event, fromCheckIn: true },
+    [{ name: "B", phone: null, pushTokens: [TOKEN_A] }],
+    "u",
+  );
+  assert.equal(plan.push[0]!.title, "Asha missed a check-in");
+  assert.match(plan.push[0]!.body, /maps/);
+});

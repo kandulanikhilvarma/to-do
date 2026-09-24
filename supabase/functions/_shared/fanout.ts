@@ -15,6 +15,8 @@ export type EventBrief = {
   personName: string;
   lat: number | null;
   lng: number | null;
+  /** Opened by a missed check-in timer rather than the SOS button. */
+  fromCheckIn?: boolean;
 };
 
 export type Recipient = {
@@ -86,6 +88,14 @@ export function pushText(kind: Kind, event: EventBrief): { title: string; body: 
     return { title: `${name} is safe`, body: `${name} marked themselves safe on Todu.` };
   }
   const link = mapsLink(event);
+  if (event.fromCheckIn) {
+    return {
+      title: `${name} missed a check-in`,
+      body: link
+        ? `They set a Todu check-in and did not check in. Last location: ${link} . Call them now, and call 112 if you cannot reach them.`
+        : "They set a Todu check-in and did not check in. Call them now, and call 112 if you cannot reach them.",
+    };
+  }
   return {
     title: `SOS: ${name} needs help`,
     body: link
