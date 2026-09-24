@@ -11,7 +11,7 @@
 
   --color-ink: #f2f5f8;
   --color-ink-muted: #9aa7b6;
-  --color-ink-faint: #6b7787;
+  --color-ink-faint: #808c9c;
 
   --color-brand: #2dd4bf;
   --color-brand-deep: #0f766e;
@@ -30,6 +30,47 @@
 html {
   color-scheme: dark;
   scroll-behavior: smooth;
+}
+
+/* Light mode: the same roles, every text colour at WCAG AA (4.5:1) or better
+   on bg, surface and surface-2. Follows the device unless the reader picked
+   a theme, which components/theme.tsx stores as <html data-theme>. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --color-bg: #f6f8fa;
+    --color-surface: #ffffff;
+    --color-surface-2: #eef2f6;
+    --color-line: #cfd8e3;
+    --color-ink: #0b1220;
+    --color-ink-muted: #44505f;
+    --color-ink-faint: #5b6776;
+    --color-brand: #0f766e;
+    --color-brand-deep: #115e59;
+    --color-indigo: #4f46e5;
+    --color-sos: #c81e1e;
+    --color-sos-deep: #7f1d1d;
+    --color-warn: #9a5b00;
+    --color-ok: #047857;
+    color-scheme: light;
+  }
+}
+
+:root[data-theme="light"] {
+  --color-bg: #f6f8fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef2f6;
+  --color-line: #cfd8e3;
+  --color-ink: #0b1220;
+  --color-ink-muted: #44505f;
+  --color-ink-faint: #5b6776;
+  --color-brand: #0f766e;
+  --color-brand-deep: #115e59;
+  --color-indigo: #4f46e5;
+  --color-sos: #c81e1e;
+  --color-sos-deep: #7f1d1d;
+  --color-warn: #9a5b00;
+  --color-ok: #047857;
+  color-scheme: light;
 }
 
 body {

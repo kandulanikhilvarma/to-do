@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { LangProvider } from "@/components/lang";
 import { SkipLink } from "@/components/site";
+import { THEME_SCRIPT } from "@/components/theme";
 import "./globals.css";
 import { siteUrl } from "@/lib/site-url";
 
@@ -45,15 +46,23 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#07090c",
-  colorScheme: "dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f6f8fa" },
+    { media: "(prefers-color-scheme: dark)", color: "#07090c" },
+  ],
+  colorScheme: "dark light",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    // data-theme is set before hydration by THEME_SCRIPT, so React must not
+    // treat it as a mismatch.
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="font-sans antialiased">
         <LangProvider>
           <SkipLink />

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { LanguageSwitcher, useLang } from "@/components/lang";
+import { ThemeSwitcher } from "@/components/theme";
 
 export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
@@ -80,6 +81,7 @@ export function SiteHeader() {
 
         <div className="ml-auto flex items-center gap-2">
           <LanguageSwitcher className="hidden sm:inline-flex" />
+          <ThemeSwitcher className="hidden sm:inline-flex" />
           <Link
             href="/dashboard"
             className="hidden rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-ink transition-colors hover:border-brand/60 sm:inline-block"
@@ -141,8 +143,9 @@ export function SiteHeader() {
               </Link>
             </li>
           </ul>
-          <div className="mt-3 border-t border-line pt-3">
+          <div className="mt-3 flex flex-wrap gap-3 border-t border-line pt-3">
             <LanguageSwitcher />
+            <ThemeSwitcher />
           </div>
         </nav>
       )}

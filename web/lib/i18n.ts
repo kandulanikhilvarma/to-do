@@ -23,6 +23,10 @@ export const en = {
   "nav.faq": "FAQ",
   "nav.language": "Language",
   "nav.menu": "Menu",
+  "theme.label": "Theme",
+  "theme.system": "Match device",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
 
   "hero.badge": "Built for India · works with 112",
   "hero.title": "One tap. Your people know where you are.",
@@ -309,6 +313,10 @@ export const te: Dict = {
   "nav.faq": "ప్రశ్నలు",
   "nav.language": "భాష",
   "nav.menu": "మెనూ",
+  "theme.label": "థీమ్",
+  "theme.system": "పరికరం లాగే",
+  "theme.light": "లైట్",
+  "theme.dark": "డార్క్",
 
   "hero.badge": "భారతదేశం కోసం · 112తో కలిసి పనిచేస్తుంది",
   "hero.title": "ఒక్క ట్యాప్. మీరు ఎక్కడ ఉన్నారో మీవాళ్లకు తెలుస్తుంది.",
@@ -593,6 +601,10 @@ export const hi: Dict = {
   "nav.faq": "सवाल-जवाब",
   "nav.language": "भाषा",
   "nav.menu": "मेन्यू",
+  "theme.label": "थीम",
+  "theme.system": "डिवाइस जैसा",
+  "theme.light": "लाइट",
+  "theme.dark": "डार्क",
 
   "hero.badge": "भारत के लिए बना · 112 के साथ काम करता है",
   "hero.title": "एक टैप। आपके अपनों को पता चल जाएगा आप कहाँ हैं।",

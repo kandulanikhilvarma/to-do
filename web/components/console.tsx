@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LanguageSwitcher, useLang } from "@/components/lang";
+import { ThemeSwitcher } from "@/components/theme";
 import { Logo, cn } from "@/components/site";
 import {
   acknowledge,
@@ -254,6 +255,7 @@ export function ResponderConsole() {
               </>
             )}
             <LanguageSwitcher className="hidden sm:inline-flex" />
+            <ThemeSwitcher className="hidden sm:inline-flex" />
             <Link
               href="/"
               className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink hover:border-brand/60"
