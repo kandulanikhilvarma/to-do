@@ -368,6 +368,25 @@ export async function eventResponders(
   ).map((r) => ({ name: r.name ?? "", status: r.status, etaMinutes: r.eta_minutes }));
 }
 
+/** Upload an evidence photo for the live event. Returns null on success or a
+ *  plain reason; the file stays in the app cache if it could not go. */
+export async function uploadEvidence(uri: string): Promise<string | null> {
+  const uid = await userId();
+  const eventId = currentEventId();
+  if (!supabase || !uid) return "not signed in";
+  if (!eventId) return "the alert has not reached the server yet";
+  const path = `${uid}/${eventId}/${Date.now()}.jpg`;
+  const body = await (await fetch(uri)).arrayBuffer();
+  const { error } = await supabase.storage
+    .from("evidence")
+    .upload(path, body, { contentType: "image/jpeg" });
+  if (error) return error.message;
+  const { error: rowError } = await supabase
+    .from("evidence_media")
+    .insert({ event_id: eventId, storage_path: path, kind: "photo" });
+  return rowError ? rowError.message : null;
+}
+
 /** Mirror the check-in deadline to the server (null clears it). Returns
  *  whether the server now matches, false when signed out or offline. */
 export async function setServerCheckIn(deadline: number | null): Promise<boolean> {

@@ -30,6 +30,8 @@ export type Settings = {
   shakeToTrigger: boolean;
   /** Start the countdown after free fall plus impact (while Todu is open). */
   fallDetection: boolean;
+  /** Take one back-camera photo for the circle when an SOS goes out. */
+  captureEvidence: boolean;
 };
 
 const DEFAULTS: Settings = {
@@ -43,6 +45,7 @@ const DEFAULTS: Settings = {
   appearance: "system",
   shakeToTrigger: false,
   fallDetection: false,
+  captureEvidence: false,
 };
 
 const kv = createMMKV({ id: "todu.settings" });

@@ -264,6 +264,19 @@ export default function SettingsScreen() {
 
       <View style={s.switchRow}>
         <View style={{ flex: 1 }}>
+          <Text style={s.label}>{t("settings.evidence")}</Text>
+          <Text style={s.hint}>{t("settings.evidenceHint")}</Text>
+        </View>
+        <Switch
+          value={settings.captureEvidence}
+          onValueChange={(v) => updateSettings({ captureEvidence: v })}
+          accessibilityLabel={t("settings.evidence")}
+          trackColor={{ true: theme.brand, false: theme.line }}
+        />
+      </View>
+
+      <View style={s.switchRow}>
+        <View style={{ flex: 1 }}>
           <Text style={s.label}>{t("settings.relay")}</Text>
           <Text style={s.hint}>{t("settings.relayHint")}</Text>
           <Text style={relay.state === "failed" ? s.warn : s.hint}>

@@ -677,6 +677,26 @@ function EventDetail({
               <li className="text-sm text-ink-faint">{t("dash.noEntries")}</li>
             )}
           </ol>
+          {event.photos && event.photos.length > 0 && (
+            <>
+              <h3 className="mt-6 text-sm font-semibold uppercase tracking-wider text-ink-faint">
+                {t("dash.photos")}
+              </h3>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {event.photos.map((url, i) => (
+                  <a key={url} href={url} target="_blank" rel="noreferrer">
+                    {/* Signed, expiring Supabase links: next/image would cache them past expiry. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt={t("dash.photoAlt", { n: i + 1 })}
+                      className="aspect-square w-full rounded-lg border border-line object-cover"
+                    />
+                  </a>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

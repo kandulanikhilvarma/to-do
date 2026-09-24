@@ -48,6 +48,38 @@ export function torchReady(): void {
   pending = null;
 }
 
+// ------------------------------------------------------------- evidence --
+// One still for the circle (spec S1b evidence capture). It shares the torch's
+// hidden camera, because two sessions on the back camera would fight.
+
+let photoWanted: ((uri: string | null) => void) | null = null;
+
+export function photoRequested(): boolean {
+  return photoWanted !== null;
+}
+
+/** A photo from the back camera, or null with no permission, no camera, or
+ *  no picture within eight seconds. Never prompts for permission. */
+export async function capturePhoto(): Promise<string | null> {
+  const permission = await Camera.getCameraPermissionsAsync().catch(() => null);
+  if (!permission?.granted) return null;
+  return new Promise<string | null>((resolve) => {
+    photoWanted = resolve;
+    emit();
+    setTimeout(() => {
+      if (photoWanted === resolve) photoTaken(null);
+    }, 8000);
+  });
+}
+
+/** Called by TorchHost with the picture it took (or null). */
+export function photoTaken(uri: string | null): void {
+  const resolve = photoWanted;
+  photoWanted = null;
+  emit();
+  resolve?.(uri);
+}
+
 export function stopTorch(): void {
   active = false;
   pending?.(false);

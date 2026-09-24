@@ -1,7 +1,13 @@
 import { CameraView } from "expo-camera";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { StyleSheet } from "react-native";
-import { subscribeTorch, torchActive, torchReady } from "../lib/torch";
+import {
+  photoRequested,
+  photoTaken,
+  subscribeTorch,
+  torchActive,
+  torchReady,
+} from "../lib/torch";
 
 // SOS in Morse, one entry per 200 ms unit: dot 1, dash 3, gap 1 between
 // signals, 3 between letters, 7 before repeating.
@@ -13,10 +19,22 @@ const PATTERN = [...S, ...off(3), ...O, ...off(3), ...S, ...off(7)];
 const UNIT_MS = 200;
 
 /** Mounted once at the root. Renders a 1 px camera view only while the
- *  beacon wants the torch, because the torch belongs to the camera session. */
+ *  beacon wants the torch or an evidence photo is pending, because the torch
+ *  belongs to the camera session. */
 export function TorchHost() {
   const active = useSyncExternalStore(subscribeTorch, torchActive);
+  const wantPhoto = useSyncExternalStore(subscribeTorch, photoRequested);
+  const camera = useRef<CameraView>(null);
+  const [ready, setReady] = useState(false);
   const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    if (!ready || !wantPhoto) return;
+    void camera.current
+      ?.takePictureAsync({ quality: 0.6 })
+      .then((photo) => photoTaken(photo?.uri ?? null))
+      .catch(() => photoTaken(null));
+  }, [ready, wantPhoto]);
 
   useEffect(() => {
     if (!active) return;
@@ -24,13 +42,20 @@ export function TorchHost() {
     return () => clearInterval(id);
   }, [active]);
 
-  if (!active) return null;
+  if (!active && !wantPhoto) {
+    if (ready) setReady(false);
+    return null;
+  }
   return (
     <CameraView
+      ref={camera}
       style={styles.hidden}
       facing="back"
-      enableTorch={PATTERN[step] ?? false}
-      onCameraReady={torchReady}
+      enableTorch={active && (PATTERN[step] ?? false)}
+      onCameraReady={() => {
+        setReady(true);
+        torchReady();
+      }}
       accessible={false}
       importantForAccessibility="no-hide-descendants"
     />

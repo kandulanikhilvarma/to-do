@@ -14,18 +14,20 @@ import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import * as Network from "expo-network";
-import { Link, router, useFocusEffect } from "expo-router";
+import { Link, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Accelerometer } from "expo-sensors";
 import {
   beginEvent,
   broadcastEvent,
   eventResponders,
+  uploadEvidence,
   hasBackend,
   markResolved,
   sendPing,
   type Fix,
 } from "../lib/backend";
 import { startBeacon, stopBeacon } from "../lib/beacon";
+import { capturePhoto } from "../lib/torch";
 import { translate, useT, type Key, type Translate } from "../lib/i18n";
 import { dial112, runLadder, type Rung } from "../lib/ladder";
 import { enqueue, size as queuedCount } from "../lib/queue";
@@ -106,6 +108,18 @@ function logTransition(from: SosContext["state"], to: SosContext): void {
   else if (to.state === "acknowledged") logIncident(tr("log.acknowledged"));
   else if (to.state === "enroute") logIncident(tr("log.enroute"));
   else if (to.state === "resolved") logIncident(tr("log.resolved"));
+}
+
+/** One photo for the circle. Never in duress mode, where Android's
+ *  camera-in-use dot would show; every outcome goes in the timeline. */
+async function captureEvidence(tr: Translate): Promise<void> {
+  const uri = await capturePhoto();
+  if (!uri) {
+    logIncident(tr("log.photoNone"));
+    return;
+  }
+  const failure = await uploadEvidence(uri);
+  logIncident(failure ? tr("log.photoKept", { msg: failure }) : tr("log.photoUploaded"));
 }
 
 function shareTimeline(): void {
@@ -247,6 +261,7 @@ export default function SosScreen() {
         commit({ ...sessionRef.current, rungs });
         await startTracking(covert, { title: tr("track.title"), body: tr("track.body") });
         watchBattery();
+        if (!covert && s.captureEvidence) void captureEvidence(tr);
         if (!rungs.some((r) => r.rung === "realtime" && r.delivered)) {
           // No server has this SOS yet: keep offering it to any Todu phone
           // that comes into Bluetooth range. Same client id, so one event.
@@ -422,6 +437,15 @@ export default function SosScreen() {
     });
     return () => sub.remove();
   }, [shakeToTrigger, fallDetection, trigger]);
+
+  // The Quick Settings tile and home-screen widget open todu:///?trigger=...
+  // They start the countdown, never the alert, so a pocket tap can be cancelled.
+  const { trigger: shortcut } = useLocalSearchParams<{ trigger?: string }>();
+  useEffect(() => {
+    if (!shortcut) return;
+    router.setParams({ trigger: undefined });
+    if (sessionRef.current.context.state === "armed") trigger();
+  }, [shortcut, trigger]);
 
   // A missed check-in starts the countdown, so a person who is fine can still
   // cancel it. Checked every 15 s and on open; the local notification covers

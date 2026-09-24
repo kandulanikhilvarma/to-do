@@ -59,6 +59,8 @@ export type SosEvent = {
   medical: MedicalProfile;
   responders: Responder[];
   timeline: TimelineEntry[];
+  /** Signed, one-hour links to evidence photos from the phone. */
+  photos?: string[];
 };
 
 export type EventSource = "live" | "demo";
@@ -224,11 +226,11 @@ type PingRow = {
 /** Who is coming, plus the breadcrumb trail, for one live event. */
 export async function loadEventDetail(
   eventId: string,
-): Promise<{ responders: Responder[]; timeline: TimelineEntry[] }> {
+): Promise<{ responders: Responder[]; timeline: TimelineEntry[]; photos: string[] }> {
   const supabase = getSupabase();
-  if (!supabase) return { responders: [], timeline: [] };
+  if (!supabase) return { responders: [], timeline: [], photos: [] };
 
-  const [acks, pings] = await Promise.all([
+  const [acks, pings, evidence] = await Promise.all([
     supabase.rpc("event_responders", { target: eventId }),
     supabase
       .from("location_pings")
@@ -236,6 +238,11 @@ export async function loadEventDetail(
       .eq("event_id", eventId)
       .order("ts", { ascending: false })
       .limit(30),
+    supabase
+      .from("evidence_media")
+      .select("storage_path")
+      .eq("event_id", eventId)
+      .order("captured_at", { ascending: true }),
   ]);
   if (acks.error) throw new Error(acks.error.message);
   if (pings.error) throw new Error(pings.error.message);
@@ -259,7 +266,17 @@ export async function loadEventDetail(
     })),
   ].sort((a, b) => b.minutesAgo - a.minutesAgo);
 
-  return { responders, timeline };
+  // RLS on evidence_media and on the private bucket both limit this to the
+  // owner and their circle; the links expire after an hour.
+  const paths = ((evidence.data ?? []) as { storage_path: string }[]).map((r) => r.storage_path);
+  const signed = paths.length
+    ? await supabase.storage.from("evidence").createSignedUrls(paths, 3600)
+    : { data: [] };
+  const photos = (signed.data ?? [])
+    .map((s) => s.signedUrl)
+    .filter((url): url is string => Boolean(url));
+
+  return { responders, timeline, photos };
 }
 
 export async function acknowledge(
