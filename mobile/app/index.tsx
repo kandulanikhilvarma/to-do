@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -30,6 +31,8 @@ import { dial112, runLadder, type Rung } from "../lib/ladder";
 import { enqueue, size as queuedCount } from "../lib/queue";
 import { broadcastSos } from "../lib/relay";
 import { clearServerCheckIn, endLocalCheckIn, useCheckIn } from "../lib/checkin";
+import { beginIncident, incidentEntries, logIncident } from "../lib/incident";
+import { formatIncident } from "../lib/incident-core";
 import { fallDetector, shakeDetector } from "../lib/motion-core";
 import { responderEvents, type Responder } from "../lib/responders";
 import { getSettings, loadPins, useSettings } from "../lib/settings";
@@ -87,6 +90,30 @@ function responderLine(t: Translate, r: Responder): string {
       : t("resp.enroute", { name });
   }
   return t(`resp.${r.status}`, { name });
+}
+
+function localT(): Translate {
+  return (key, vars) => translate(getSettings().locale, key, vars);
+}
+
+/** One line per state change, so the shared timeline reads as a story. */
+function logTransition(from: SosContext["state"], to: SosContext): void {
+  if (from === to.state) return;
+  const tr = localT();
+  if (to.state === "countdown") beginIncident(tr("log.countdown"));
+  else if (to.state === "false_alarm") logIncident(tr("log.cancelled"));
+  else if (to.state === "broadcasting") logIncident(tr(to.covert ? "log.sentCovert" : "log.sent"));
+  else if (to.state === "acknowledged") logIncident(tr("log.acknowledged"));
+  else if (to.state === "enroute") logIncident(tr("log.enroute"));
+  else if (to.state === "resolved") logIncident(tr("log.resolved"));
+}
+
+function shareTimeline(): void {
+  const entries = incidentEntries();
+  if (entries.length === 0) return;
+  const tr = localT();
+  const date = new Date(entries[0]!.t).toLocaleDateString();
+  void Share.share({ message: formatIncident(tr("log.title", { date }), entries) });
 }
 
 async function readBattery(): Promise<number | null> {
@@ -202,6 +229,19 @@ export default function SosScreen() {
         },
       });
 
+      if (fix) {
+        logIncident(
+          tr("log.location", {
+            lat: fix.lat.toFixed(5),
+            lng: fix.lng.toFixed(5),
+            acc: Math.round(fix.accuracy ?? 0),
+          }),
+        );
+      }
+      for (const r of rungs) {
+        logIncident(`${r.delivered ? "✓" : "–"} ${tr(RUNG_KEY[r.rung])}: ${r.detail}`);
+      }
+
       // The user may have marked safe while the ladder was still running.
       if (LIVE.has(sessionRef.current.context.state)) {
         commit({ ...sessionRef.current, rungs });
@@ -284,6 +324,7 @@ export default function SosScreen() {
             ? null
             : current.clientId,
       });
+      logTransition(current.context.state, context);
       for (const effect of effects) runEffect(effect, context);
       return true;
     },
@@ -635,6 +676,9 @@ export default function SosScreen() {
               {t("sos.safeTitle")}
             </Text>
             <Text style={s.sub}>{t("sos.safeBody")}</Text>
+            <Pressable style={s.secondary} onPress={shareTimeline} accessibilityRole="button">
+              <Text style={s.secondaryLabel}>{t("sos.share")}</Text>
+            </Pressable>
             <Pressable
               style={s.secondary}
               onPress={() => dispatch({ type: "REARM" })}
