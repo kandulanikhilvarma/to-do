@@ -17,6 +17,7 @@ import { Link, useFocusEffect } from "expo-router";
 import {
   beginEvent,
   broadcastEvent,
+  eventResponders,
   hasBackend,
   markResolved,
   sendPing,
@@ -27,6 +28,7 @@ import { translate, useT, type Key, type Translate } from "../lib/i18n";
 import { dial112, runLadder, type Rung } from "../lib/ladder";
 import { enqueue, size as queuedCount } from "../lib/queue";
 import { broadcastSos } from "../lib/relay";
+import { responderEvents, type Responder } from "../lib/responders";
 import { getSettings, loadPins, useSettings } from "../lib/settings";
 import {
   reduce,
@@ -74,6 +76,16 @@ async function readFix(allowPrompt: boolean): Promise<Fix | null> {
   }
 }
 
+function responderLine(t: Translate, r: Responder): string {
+  const name = r.name || t("resp.someone");
+  if (r.status === "enroute") {
+    return r.etaMinutes != null
+      ? t("resp.enrouteEta", { name, n: r.etaMinutes })
+      : t("resp.enroute", { name });
+  }
+  return t(`resp.${r.status}`, { name });
+}
+
 async function readBattery(): Promise<number | null> {
   const level = await Battery.getBatteryLevelAsync().catch(() => -1);
   return level >= 0 ? Math.round(level * 100) : null;
@@ -104,6 +116,7 @@ export default function SosScreen() {
   const [flashOn, setFlashOn] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [queued, setQueued] = useState(0);
+  const [responders, setResponders] = useState<Responder[]>([]);
 
   const commit = useCallback((next: SosSession) => {
     sessionRef.current = next;
@@ -309,6 +322,26 @@ export default function SosScreen() {
     void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
   }, []);
 
+  // Who is coming. Polled rather than streamed: a few rows every 15 s, and
+  // it also moves the machine to acknowledged / enroute for the UI.
+  const liveNow = LIVE.has(session.context.state);
+  useEffect(() => {
+    if (!liveNow || !hasBackend()) return;
+    const poll = () =>
+      void eventResponders().then((list) => {
+        setResponders(list);
+        for (const e of responderEvents(sessionRef.current.context.state, list)) {
+          dispatchRef.current(e);
+        }
+      });
+    poll();
+    const id = setInterval(poll, 15_000);
+    return () => {
+      clearInterval(id);
+      setResponders([]);
+    };
+  }, [liveNow]);
+
   useEffect(() => {
     if (!flashing || reduceMotion) return;
     // About 1.7 flashes a second: under the WCAG 2.3.1 limit of three.
@@ -481,6 +514,22 @@ export default function SosScreen() {
             <Pressable style={s.dial} onPress={() => void dial112()} accessibilityRole="button">
               <Text style={s.dialLabel}>{t("sos.call112")}</Text>
             </Pressable>
+
+            {responders.length > 0 && (
+              <>
+                <Text style={s.section}>{t("resp.heading")}</Text>
+                {responders.map((r, i) => (
+                  <View key={`${r.name}-${i}`} style={s.rung} accessible>
+                    <Text
+                      style={[s.mark, { color: r.status === "notified" ? theme.inkFaint : theme.ok }]}
+                    >
+                      {r.status === "notified" ? "…" : "✓"}
+                    </Text>
+                    <Text style={[s.rungName, { flex: 1 }]}>{responderLine(t, r)}</Text>
+                  </View>
+                ))}
+              </>
+            )}
 
             <Text style={s.section}>{working ? t("sos.running") : t("sos.ladder")}</Text>
             {rungs.map((r) => (

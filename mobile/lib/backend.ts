@@ -8,6 +8,7 @@ import { createMMKV } from "react-native-mmkv";
 import { enqueue, flush, pending, type QueuedItem } from "./queue";
 import type { RelayPayload } from "./relay-core";
 import type { Contact, Settings } from "./settings";
+import type { Responder, ResponderStatus } from "./responders";
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -353,6 +354,18 @@ export async function answerInvite(connectionId: string, accept: boolean): Promi
     .update({ status: accept ? "active" : "revoked" })
     .eq("id", connectionId);
   return !error;
+}
+
+/** Who has answered the live SOS: each responder's latest status and ETA.
+ *  RLS inside event_responders limits this to the owner and their circle. */
+export async function eventResponders(
+  eventId: string | null = currentEventId(),
+): Promise<Responder[]> {
+  if (!supabase || !eventId) return [];
+  const { data } = await supabase.rpc("event_responders", { target: eventId });
+  return (
+    (data ?? []) as { name: string | null; status: ResponderStatus; eta_minutes: number | null }[]
+  ).map((r) => ({ name: r.name ?? "", status: r.status, etaMinutes: r.eta_minutes }));
 }
 
 export async function isSignedIn(): Promise<boolean> {
