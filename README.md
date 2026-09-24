@@ -17,9 +17,9 @@ Live preview: https://todu-kandula.vercel.app
 
 | Path | What it is | Verified by |
 |---|---|---|
-| `web/` | Next.js site in English, Telugu and Hindi, plus the responder console (phone sign-in, live pings, ETA sharing). Deployed to Vercel. | `tsc`, `eslint`, `next build` |
-| `mobile/` | Expo SDK 57 app: SOS state machine, cancel and duress PINs, offline queue, fallback ladder, siren and torch, live trail, Bluetooth relay, invites, push, three languages. | `tsc`, `expo lint`, `expo-doctor`, 30 unit tests, Android bundle + prebuild |
-| `supabase/` | Postgres + PostGIS schema and RLS, invites, `sos-fanout` (push + SMS) and `sos-relay` Edge Functions. | 23 RLS tests on real Postgres, 15 fan-out and relay tests, `deno check` |
+| `web/` | Next.js site in English, Telugu and Hindi, light and dark, plus the responder console (phone sign-in, live pings, ETA sharing, evidence photos). Deployed to Vercel. | `tsc`, `eslint`, `next build` |
+| `mobile/` | Expo SDK 57 app: SOS state machine, cancel and duress PINs, offline queue, fallback ladder, siren and torch, live trail, Bluetooth relay, invites, push, who-is-coming, check-in timer, shake and fall trigger, fake call, Quick Settings tile and home widget, evidence photo, shareable incident timeline, light and dark themes, three languages. | `tsc`, `expo lint`, `expo-doctor`, 46 unit tests, release build run on an Android emulator |
+| `supabase/` | Postgres + PostGIS schema and RLS, invites, missed check-in alerts (pg_cron), private evidence storage, `sos-fanout` (push + SMS) and `sos-relay` Edge Functions. | 25 RLS tests on real Postgres, 16 fan-out and relay tests, `deno check` |
 | `docs/` | Architecture, offline ladder, permissions, threat model, source spec. | |
 
 ## Architecture
@@ -109,6 +109,17 @@ Stated plainly, because a safety app that oversells itself gets someone hurt:
   on a hidden camera view and reports itself only once the camera is ready.
 - **Edge Functions are typechecked and their cores unit tested against the
   documented Expo and MSG91 formats, but not yet deployed to a live project.**
+- **Some triggers work only while Todu is open.** Shake, fall detection and
+  the fake call run in the foreground: an all-day background accelerometer
+  needs a foreground service that Play penalises. The Quick Settings tile
+  unlocks the phone first, so the medical profile is never shown to whoever
+  holds it. Power-button presses belong to Android's own Emergency SOS, and no
+  app can write to the lock-screen medical ID.
+- **Check-in reminders can be late.** Local notifications are subject to
+  Android Doze. The server copy (signed in, checked every minute by pg_cron)
+  is what alerts the circle when the phone is off.
+- **Evidence photos upload only when online and signed in.** Otherwise the
+  incident timeline says so; there is no offline photo queue yet.
 - **Legal pages are drafts,** English only, and say so on the page.
 - **Satellite SOS and silent SMS** are not buildable by any third party. See
   `docs/OFFLINE.md`.
@@ -120,6 +131,10 @@ Stated plainly, because a safety app that oversells itself gets someone hurt:
   rather than Unistyles or NativeWind.
 - `nearby_responders()` was removed: it could not work under RLS. Nearby
   dispatch (Stage 3) needs an explicit, opt-in presence table.
+- Appearance follows the phone (light or dark) by default, where the spec
+  says dark by default; dark stays the fallback, and both are in Settings.
+- Crash detection is fall detection (free fall then impact) while Todu is
+  open, and it only starts the countdown.
 
 ## Licence
 

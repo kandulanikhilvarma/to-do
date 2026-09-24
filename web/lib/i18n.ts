@@ -47,7 +47,7 @@ export const en = {
     "No reading required. No hunting for a button. It works one-handed, in the dark, with shaking hands, and while somebody is watching you.",
   "how.s1.t": "Trigger without looking",
   "how.s1.d":
-    "In-app button, home screen widget, Android quick settings tile, shake, or the power button press India already taught you in 2017.",
+    "In-app button, home screen widget, Android quick settings tile, or three hard shakes. Your phone's own power-button emergency call keeps working alongside Todu.",
   "how.s2.t": "A grace window, not a hair trigger",
   "how.s2.d":
     "A countdown with a large cancel target stops false alarms. Enter your duress PIN instead and Todu fakes a cancel while silently escalating.",
@@ -135,7 +135,7 @@ export const en = {
   "pricing.free.f3": "Direct dial 112 and SMS fallback",
   "pricing.free.f4": "Siren, torch and screen beacon",
   "pricing.free.f5": "Medical and emergency profile",
-  "pricing.free.f6": "Crash detection",
+  "pricing.free.f6": "Fall detection while Todu is open",
   "pricing.free.cta": "Get Todu",
   "pricing.plus.name": "Todu Plus",
   "pricing.plus.price": "₹99–199",
@@ -340,7 +340,7 @@ export const te: Dict = {
     "చదవాల్సిన అవసరం లేదు. బటన్ వెతకాల్సిన అవసరం లేదు. ఒక్క చేత్తో, చీకట్లో, వణుకుతున్న చేతులతో, ఎవరైనా మిమ్మల్ని చూస్తున్నప్పుడు కూడా పనిచేస్తుంది.",
   "how.s1.t": "చూడకుండానే ట్రిగ్గర్ చేయండి",
   "how.s1.d":
-    "యాప్‌లోని బటన్, హోమ్ స్క్రీన్ విడ్జెట్, ఆండ్రాయిడ్ క్విక్ సెట్టింగ్స్ టైల్, షేక్, లేదా 2017లోనే భారతదేశం మీకు నేర్పిన పవర్ బటన్ నొక్కుడు.",
+    "యాప్‌లోని బటన్, హోమ్ స్క్రీన్ విడ్జెట్, ఆండ్రాయిడ్ క్విక్ సెట్టింగ్స్ టైల్, లేదా మూడుసార్లు గట్టిగా కదిలించడం. మీ ఫోన్ సొంత పవర్-బటన్ ఎమర్జెన్సీ కాల్ Todu తో పాటు పనిచేస్తూనే ఉంటుంది.",
   "how.s2.t": "తొందరపాటు కాదు, ఆలోచించే సమయం",
   "how.s2.d":
     "పెద్ద క్యాన్సిల్ బటన్‌తో కౌంట్‌డౌన్ తప్పుడు అలారాలను ఆపుతుంది. బదులుగా మీ డ్యురెస్ పిన్ నమోదు చేస్తే, Todu బయటకు రద్దు చేసినట్టు చూపిస్తూ లోపల నిశ్శబ్దంగా సహాయం పంపుతుంది.",
@@ -428,7 +428,7 @@ export const te: Dict = {
   "pricing.free.f3": "112కి నేరుగా డయల్, SMS ఫాల్‌బ్యాక్",
   "pricing.free.f4": "సైరన్, టార్చ్, స్క్రీన్ బీకన్",
   "pricing.free.f5": "వైద్య, అత్యవసర ప్రొఫైల్",
-  "pricing.free.f6": "ప్రమాద గుర్తింపు",
+  "pricing.free.f6": "Todu తెరిచి ఉన్నప్పుడు పడిపోవడాన్ని గుర్తించడం",
   "pricing.free.cta": "Todu పొందండి",
   "pricing.plus.name": "Todu Plus",
   "pricing.plus.price": "₹99–199",
@@ -630,7 +630,7 @@ export const hi: Dict = {
     "कुछ पढ़ने की ज़रूरत नहीं। बटन ढूँढ़ने की ज़रूरत नहीं। यह एक हाथ से, अंधेरे में, काँपते हाथों से, और तब भी काम करता है जब कोई आपको देख रहा हो।",
   "how.s1.t": "बिना देखे चालू करें",
   "how.s1.d":
-    "ऐप का बटन, होम स्क्रीन विजेट, एंड्रॉयड क्विक सेटिंग्स टाइल, फ़ोन हिलाना, या वही पावर बटन दबाना जो भारत ने आपको 2017 में सिखाया था।",
+    "ऐप का बटन, होम स्क्रीन विजेट, एंड्रॉयड क्विक सेटिंग्स टाइल, या फ़ोन को तीन बार ज़ोर से हिलाना। आपके फ़ोन की अपनी पावर-बटन इमरजेंसी कॉल Todu के साथ चलती रहती है।",
   "how.s2.t": "जल्दबाज़ी नहीं, सोचने का समय",
   "how.s2.d":
     "बड़े कैंसिल बटन वाला काउंटडाउन ग़लत अलार्म रोकता है। इसके बजाय अपना ड्यूरेस पिन डालें और Todu ऊपर से रद्द दिखाते हुए चुपचाप मदद भेज देता है।",
@@ -718,7 +718,7 @@ export const hi: Dict = {
   "pricing.free.f3": "112 पर सीधा डायल और SMS फ़ॉलबैक",
   "pricing.free.f4": "सायरन, टॉर्च और स्क्रीन बीकन",
   "pricing.free.f5": "मेडिकल और आपातकालीन प्रोफ़ाइल",
-  "pricing.free.f6": "दुर्घटना पहचान",
+  "pricing.free.f6": "Todu खुला होने पर गिरने की पहचान",
   "pricing.free.cta": "Todu पाएँ",
   "pricing.plus.name": "Todu Plus",
   "pricing.plus.price": "₹99–199",

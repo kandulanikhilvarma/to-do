@@ -9,7 +9,9 @@ The winning strategy is staged, primed requests plus an OEM autostart wizard.
 1. Notifications
 2. Location while using the app
 3. Background location, primed with a screen explaining why first
-4. Microphone and camera, only at first evidence capture
+4. Camera, from the protection check in Settings, for the torch and the
+   optional evidence photo. Never prompted mid-emergency. The microphone is
+   not requested: audio evidence is not built.
 5. Battery optimisation exemption
 
 Never a wall of prompts on first launch. Each request is preceded by a screen
@@ -25,6 +27,9 @@ you cannot speak, Todu needs to see your location even when the app is closed."
 | `SEND_SMS` | Gated to default SMS handlers. **Not declared.** |
 | `CALL_PHONE` | Fine for dialling |
 | iOS Critical Alerts | Needs an Apple entitlement, reviewed manually, frequently bounced. Apply early. |
+| `USE_FULL_SCREEN_INTENT` | Restricted to calling and alarm apps on Android 14+. **Not declared**, so the fake call rings only while Todu is open. |
+| Quick Settings tile | Bound by the system through `BIND_QUICK_SETTINGS_TILE`; no user prompt. The tile unlocks the phone before opening Todu. |
+| Accelerometer (shake, fall) | No permission below 200 Hz; Todu samples at 20 Hz, foreground only. |
 
 ## The OEM problem
 
