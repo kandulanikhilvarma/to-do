@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import {
@@ -17,9 +17,11 @@ import {
 import { useT } from "../lib/i18n";
 import { normalizePhone } from "../lib/phone";
 import { updateSettings, useSettings, type Contact } from "../lib/settings";
-import { theme } from "../lib/theme";
+import { useTheme, type Palette } from "../lib/theme";
 
 export default function CircleScreen() {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const t = useT();
   const { contacts } = useSettings();
   const [name, setName] = useState("");
@@ -209,57 +211,59 @@ export default function CircleScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  page: { padding: 20, gap: 12, backgroundColor: theme.bg, flexGrow: 1 },
-  section: { gap: 10 },
-  heading: {
-    color: theme.inkFaint,
-    fontSize: 13,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    marginTop: 8,
-  },
-  note: { color: theme.inkMuted, fontSize: 14, lineHeight: 20 },
-  hint: { color: theme.inkFaint, fontSize: 13, lineHeight: 19 },
-  body: { color: theme.ink, fontSize: 15, lineHeight: 21 },
-  empty: { color: theme.inkFaint, fontSize: 14, paddingVertical: 8 },
-  card: {
-    gap: 10,
-    borderWidth: 1,
-    borderColor: theme.line,
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    padding: 14,
-  },
-  row: { flexDirection: "row", alignItems: "center", gap: 10 },
-  name: { color: theme.ink, fontSize: 16, fontWeight: "600" },
-  meta: { color: theme.inkFaint, fontSize: 13, marginTop: 2 },
-  ok: { color: theme.ok, fontSize: 13, fontWeight: "600", marginTop: 4 },
-  pending: { color: theme.warn, fontSize: 13, fontWeight: "600", marginTop: 4 },
-  remove: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
-  removeLabel: { color: theme.warn, fontSize: 14, fontWeight: "600" },
-  form: { gap: 10, marginTop: 12 },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.line,
-    backgroundColor: theme.surface,
-    color: theme.ink,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  error: { color: theme.warn, fontSize: 14 },
-  button: {
-    flex: 1,
-    borderRadius: 12,
-    minHeight: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-  primary: { backgroundColor: theme.brand },
-  primaryLabel: { color: theme.bg, fontSize: 16, fontWeight: "700" },
-  secondary: { borderWidth: 1, borderColor: theme.line, backgroundColor: theme.surface2 },
-  secondaryLabel: { color: theme.ink, fontSize: 15, fontWeight: "600" },
-});
+function makeStyles(theme: Palette) {
+  return StyleSheet.create({
+    page: { padding: 20, gap: 12, backgroundColor: theme.bg, flexGrow: 1 },
+    section: { gap: 10 },
+    heading: {
+      color: theme.inkFaint,
+      fontSize: 13,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      marginTop: 8,
+    },
+    note: { color: theme.inkMuted, fontSize: 14, lineHeight: 20 },
+    hint: { color: theme.inkFaint, fontSize: 13, lineHeight: 19 },
+    body: { color: theme.ink, fontSize: 15, lineHeight: 21 },
+    empty: { color: theme.inkFaint, fontSize: 14, paddingVertical: 8 },
+    card: {
+      gap: 10,
+      borderWidth: 1,
+      borderColor: theme.line,
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      padding: 14,
+    },
+    row: { flexDirection: "row", alignItems: "center", gap: 10 },
+    name: { color: theme.ink, fontSize: 16, fontWeight: "600" },
+    meta: { color: theme.inkFaint, fontSize: 13, marginTop: 2 },
+    ok: { color: theme.ok, fontSize: 13, fontWeight: "600", marginTop: 4 },
+    pending: { color: theme.warn, fontSize: 13, fontWeight: "600", marginTop: 4 },
+    remove: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
+    removeLabel: { color: theme.warn, fontSize: 14, fontWeight: "600" },
+    form: { gap: 10, marginTop: 12 },
+    input: {
+      borderWidth: 1,
+      borderColor: theme.line,
+      backgroundColor: theme.surface,
+      color: theme.ink,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+    },
+    error: { color: theme.warn, fontSize: 14 },
+    button: {
+      flex: 1,
+      borderRadius: 12,
+      minHeight: 48,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 12,
+    },
+    primary: { backgroundColor: theme.brand },
+    primaryLabel: { color: theme.bg, fontSize: 16, fontWeight: "700" },
+    secondary: { borderWidth: 1, borderColor: theme.line, backgroundColor: theme.surface2 },
+    secondaryLabel: { color: theme.ink, fontSize: 15, fontWeight: "600" },
+  });
+}

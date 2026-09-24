@@ -92,6 +92,10 @@ const en = {
   "profile.synced": "Saved and synced",
 
   "settings.language": "Language",
+  "settings.appearance": "Appearance",
+  "appearance.system": "Match phone",
+  "appearance.light": "Light",
+  "appearance.dark": "Dark",
   "settings.silent": "Silent mode",
   "settings.silentHint":
     "No siren and no screen flash during an SOS. Use it when noise could put you in more danger.",
@@ -253,6 +257,10 @@ const te: Dict = {
   "profile.synced": "సేవ్ చేసి సింక్ చేయబడింది",
 
   "settings.language": "భాష",
+  "settings.appearance": "రూపం",
+  "appearance.system": "ఫోన్ లాగే",
+  "appearance.light": "లైట్",
+  "appearance.dark": "డార్క్",
   "settings.silent": "సైలెంట్ మోడ్",
   "settings.silentHint":
     "SOS సమయంలో సైరన్, స్క్రీన్ ఫ్లాష్ ఉండవు. శబ్దం మిమ్మల్ని మరింత ప్రమాదంలో పడేస్తుందనుకుంటే వాడండి.",
@@ -411,6 +419,10 @@ const hi: Dict = {
   "profile.synced": "सहेजा और सिंक किया गया",
 
   "settings.language": "भाषा",
+  "settings.appearance": "रूप",
+  "appearance.system": "फ़ोन जैसा",
+  "appearance.light": "लाइट",
+  "appearance.dark": "डार्क",
   "settings.silent": "साइलेंट मोड",
   "settings.silentHint":
     "SOS के दौरान न सायरन, न स्क्रीन फ़्लैश। तब इस्तेमाल करें जब आवाज़ आपको और ख़तरे में डाल सकती हो।",

@@ -16,7 +16,7 @@ import { ensureSosChannel, registerForPush } from "../lib/push";
 import { flush } from "../lib/queue";
 import { startRelay } from "../lib/relay";
 import { getSettings } from "../lib/settings";
-import { theme } from "../lib/theme";
+import { useTheme } from "../lib/theme";
 
 // Show SOS alerts even while Todu is open.
 Notifications.setNotificationHandler({
@@ -64,6 +64,7 @@ function useSessionSetup() {
 
 export default function RootLayout() {
   const t = useT();
+  const theme = useTheme();
   useQueueFlusher();
   useSessionSetup();
 
@@ -76,7 +77,7 @@ export default function RootLayout() {
 
   return (
     <>
-      <StatusBar style="light" />
+      <StatusBar style={theme.scheme === "dark" ? "light" : "dark"} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: theme.bg },

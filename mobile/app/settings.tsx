@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Linking,
   Platform,
@@ -23,9 +23,10 @@ import { pushState } from "../lib/push";
 import { size as queuedCount } from "../lib/queue";
 import { relayStatus } from "../lib/relay";
 import { getSettings, loadPins, savePins, updateSettings, useSettings } from "../lib/settings";
-import { theme } from "../lib/theme";
+import { useTheme, type Appearance, type Palette } from "../lib/theme";
 
 const COUNTDOWNS = [5, 8, 10, 15];
+const APPEARANCES: Appearance[] = ["system", "light", "dark"];
 
 const PIN_ERROR: Record<PinError, Key> = {
   format: "pin.format",
@@ -79,6 +80,8 @@ async function readHealth(): Promise<Health> {
 }
 
 export default function SettingsScreen() {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const t = useT();
   const settings = useSettings();
 
@@ -196,6 +199,25 @@ export default function SettingsScreen() {
           >
             <Text style={[s.chipLabel, settings.locale === l && s.chipLabelOn]}>
               {localeNames[l]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={s.heading} accessibilityRole="header">
+        {t("settings.appearance")}
+      </Text>
+      <View style={s.chips}>
+        {APPEARANCES.map((a) => (
+          <Pressable
+            key={a}
+            onPress={() => updateSettings({ appearance: a })}
+            style={[s.chip, settings.appearance === a && s.chipOn]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: settings.appearance === a }}
+          >
+            <Text style={[s.chipLabel, settings.appearance === a && s.chipLabelOn]}>
+              {t(`appearance.${a}`)}
             </Text>
           </Pressable>
         ))}
@@ -401,81 +423,83 @@ export default function SettingsScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  page: { padding: 20, gap: 12, backgroundColor: theme.bg, flexGrow: 1 },
-  heading: {
-    color: theme.inkFaint,
-    fontSize: 13,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    marginTop: 12,
-  },
-  label: { color: theme.ink, fontSize: 16, fontWeight: "600" },
-  hint: { color: theme.inkMuted, fontSize: 13, lineHeight: 19, marginTop: 2 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    borderWidth: 1,
-    borderColor: theme.line,
-    backgroundColor: theme.surface,
-    borderRadius: 999,
-    minHeight: 44,
-    paddingHorizontal: 16,
-    justifyContent: "center",
-  },
-  chipOn: { borderColor: theme.brand, backgroundColor: "rgba(45,212,191,0.12)" },
-  chipLabel: { color: theme.inkMuted, fontSize: 15 },
-  chipLabelOn: { color: theme.brand, fontWeight: "700" },
-  switchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: theme.line,
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.line,
-    backgroundColor: theme.surface,
-    color: theme.ink,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-  },
-  secondary: {
-    borderWidth: 1,
-    borderColor: theme.line,
-    backgroundColor: theme.surface2,
-    borderRadius: 12,
-    minHeight: 50,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryLabel: { color: theme.ink, fontSize: 16, fontWeight: "600" },
-  healthRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: theme.line,
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    padding: 14,
-  },
-  fix: {
-    borderWidth: 1,
-    borderColor: theme.brand,
-    borderRadius: 10,
-    minHeight: 44,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-  },
-  fixLabel: { color: theme.brand, fontSize: 14, fontWeight: "700" },
-  oem: { gap: 10 },
-  ok: { color: theme.ok, fontSize: 14, fontWeight: "600" },
-  warn: { color: theme.warn, fontSize: 14, fontWeight: "600" },
-});
+function makeStyles(theme: Palette) {
+  return StyleSheet.create({
+    page: { padding: 20, gap: 12, backgroundColor: theme.bg, flexGrow: 1 },
+    heading: {
+      color: theme.inkFaint,
+      fontSize: 13,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      marginTop: 12,
+    },
+    label: { color: theme.ink, fontSize: 16, fontWeight: "600" },
+    hint: { color: theme.inkMuted, fontSize: 13, lineHeight: 19, marginTop: 2 },
+    chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    chip: {
+      borderWidth: 1,
+      borderColor: theme.line,
+      backgroundColor: theme.surface,
+      borderRadius: 999,
+      minHeight: 44,
+      paddingHorizontal: 16,
+      justifyContent: "center",
+    },
+    chipOn: { borderColor: theme.brand, backgroundColor: "rgba(45,212,191,0.12)" },
+    chipLabel: { color: theme.inkMuted, fontSize: 15 },
+    chipLabelOn: { color: theme.brand, fontWeight: "700" },
+    switchRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderWidth: 1,
+      borderColor: theme.line,
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      padding: 14,
+      marginTop: 8,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: theme.line,
+      backgroundColor: theme.surface,
+      color: theme.ink,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+    },
+    secondary: {
+      borderWidth: 1,
+      borderColor: theme.line,
+      backgroundColor: theme.surface2,
+      borderRadius: 12,
+      minHeight: 50,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    secondaryLabel: { color: theme.ink, fontSize: 16, fontWeight: "600" },
+    healthRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      borderWidth: 1,
+      borderColor: theme.line,
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      padding: 14,
+    },
+    fix: {
+      borderWidth: 1,
+      borderColor: theme.brand,
+      borderRadius: 10,
+      minHeight: 44,
+      paddingHorizontal: 14,
+      justifyContent: "center",
+    },
+    fixLabel: { color: theme.brand, fontSize: 14, fontWeight: "700" },
+    oem: { gap: 10 },
+    ok: { color: theme.ok, fontSize: 14, fontWeight: "600" },
+    warn: { color: theme.warn, fontSize: 14, fontWeight: "600" },
+  });
+}

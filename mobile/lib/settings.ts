@@ -5,6 +5,7 @@ import * as SecureStore from "expo-secure-store";
 import { useSyncExternalStore } from "react";
 import { createMMKV } from "react-native-mmkv";
 import type { Locale } from "./i18n";
+import type { Appearance } from "./theme";
 
 export type Contact = { name: string; phone: string };
 
@@ -23,6 +24,8 @@ export type Settings = {
   locale: Locale;
   /** Carry SOS alerts heard from nearby Todu phones to the server. */
   relayForOthers: boolean;
+  /** Light, dark, or follow the phone. */
+  appearance: Appearance;
 };
 
 const DEFAULTS: Settings = {
@@ -33,6 +36,7 @@ const DEFAULTS: Settings = {
   countdownSeconds: 8,
   locale: "en",
   relayForOthers: true,
+  appearance: "system",
 };
 
 const kv = createMMKV({ id: "todu.settings" });

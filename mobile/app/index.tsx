@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   Pressable,
@@ -36,7 +36,7 @@ import {
   type SosEvent,
 } from "../lib/sos-machine";
 import { loadSession, saveSession, type SosSession } from "../lib/sos-session";
-import { theme } from "../lib/theme";
+import { useTheme, type Palette } from "../lib/theme";
 import { startTracking, stopTracking, toFix } from "../lib/tracking";
 
 const LIVE = new Set<SosContext["state"]>(["broadcasting", "acknowledged", "enroute"]);
@@ -80,6 +80,8 @@ async function readBattery(): Promise<number | null> {
 }
 
 export default function SosScreen() {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const t = useT();
   const settings = useSettings();
 
@@ -581,115 +583,117 @@ export default function SosScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.bg },
-  page: { padding: 24, gap: 16, alignItems: "center", flexGrow: 1 },
-  title: {
-    color: theme.ink,
-    fontSize: 26,
-    fontWeight: "600",
-    textAlign: "center",
-    marginTop: 12,
-  },
-  sub: { color: theme.inkMuted, fontSize: 15, textAlign: "center", lineHeight: 21 },
-  section: {
-    alignSelf: "stretch",
-    color: theme.inkFaint,
-    fontSize: 13,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    marginTop: 8,
-  },
-  big: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 4,
-    marginVertical: 16,
-  },
-  bigIdle: { borderColor: "rgba(239,68,68,0.5)", backgroundColor: "rgba(239,68,68,0.1)" },
-  bigHolding: { borderColor: theme.sos, backgroundColor: "rgba(239,68,68,0.22)" },
-  bigLive: { borderColor: theme.sos, backgroundColor: "rgba(239,68,68,0.15)" },
-  bigLabel: {
-    color: theme.ink,
-    fontSize: 19,
-    fontWeight: "600",
-    textAlign: "center",
-    paddingHorizontal: 28,
-  },
-  count: { color: theme.ink, fontSize: 80, fontWeight: "600" },
-  pinBox: { alignSelf: "stretch", gap: 10 },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.line,
-    backgroundColor: theme.surface,
-    color: theme.ink,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 22,
-    letterSpacing: 8,
-    textAlign: "center",
-  },
-  warn: { color: theme.warn, fontSize: 14, textAlign: "center" },
-  secondary: {
-    borderWidth: 1,
-    borderColor: theme.line,
-    backgroundColor: theme.surface2,
-    borderRadius: 14,
-    minHeight: 56,
-    paddingHorizontal: 24,
-    alignSelf: "stretch",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryLabel: { color: theme.ink, fontSize: 17, fontWeight: "600" },
-  row: { flexDirection: "row", gap: 12, alignSelf: "stretch" },
-  half: { flex: 1, alignSelf: "auto" },
-  dial: {
-    backgroundColor: theme.sos,
-    borderRadius: 14,
-    minHeight: 64,
-    alignSelf: "stretch",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dialLabel: { color: "#fff", fontSize: 20, fontWeight: "700" },
-  rung: {
-    alignSelf: "stretch",
-    flexDirection: "row",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: theme.line,
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    padding: 12,
-  },
-  mark: { fontSize: 18, fontWeight: "700", width: 18, textAlign: "center" },
-  rungName: { color: theme.ink, fontSize: 15, fontWeight: "600" },
-  rungDetail: { color: theme.inkMuted, fontSize: 13, marginTop: 2, lineHeight: 18 },
-  nudge: { color: theme.warn, fontSize: 14, textAlign: "center", textDecorationLine: "underline" },
-  note: { color: theme.inkFaint, fontSize: 13, textAlign: "center" },
-  disclaimer: {
-    color: theme.inkFaint,
-    fontSize: 12,
-    textAlign: "center",
-    marginTop: "auto",
-    paddingTop: 24,
-  },
-  links: { flexDirection: "row", gap: 20, flexWrap: "wrap", justifyContent: "center" },
-  link: { color: theme.brand, fontSize: 15, paddingVertical: 10 },
-  flash: { alignItems: "center", justifyContent: "flex-end", paddingBottom: 64 },
-  flashLabel: {
-    color: "#000",
-    backgroundColor: "rgba(255,255,255,0.85)",
-    fontSize: 16,
-    fontWeight: "600",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-    overflow: "hidden",
-  },
-});
+function makeStyles(theme: Palette) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: theme.bg },
+    page: { padding: 24, gap: 16, alignItems: "center", flexGrow: 1 },
+    title: {
+      color: theme.ink,
+      fontSize: 26,
+      fontWeight: "600",
+      textAlign: "center",
+      marginTop: 12,
+    },
+    sub: { color: theme.inkMuted, fontSize: 15, textAlign: "center", lineHeight: 21 },
+    section: {
+      alignSelf: "stretch",
+      color: theme.inkFaint,
+      fontSize: 13,
+      fontWeight: "600",
+      textTransform: "uppercase",
+      marginTop: 8,
+    },
+    big: {
+      width: 240,
+      height: 240,
+      borderRadius: 120,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 4,
+      marginVertical: 16,
+    },
+    bigIdle: { borderColor: "rgba(239,68,68,0.5)", backgroundColor: "rgba(239,68,68,0.1)" },
+    bigHolding: { borderColor: theme.sos, backgroundColor: "rgba(239,68,68,0.22)" },
+    bigLive: { borderColor: theme.sos, backgroundColor: "rgba(239,68,68,0.15)" },
+    bigLabel: {
+      color: theme.ink,
+      fontSize: 19,
+      fontWeight: "600",
+      textAlign: "center",
+      paddingHorizontal: 28,
+    },
+    count: { color: theme.ink, fontSize: 80, fontWeight: "600" },
+    pinBox: { alignSelf: "stretch", gap: 10 },
+    input: {
+      borderWidth: 1,
+      borderColor: theme.line,
+      backgroundColor: theme.surface,
+      color: theme.ink,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      fontSize: 22,
+      letterSpacing: 8,
+      textAlign: "center",
+    },
+    warn: { color: theme.warn, fontSize: 14, textAlign: "center" },
+    secondary: {
+      borderWidth: 1,
+      borderColor: theme.line,
+      backgroundColor: theme.surface2,
+      borderRadius: 14,
+      minHeight: 56,
+      paddingHorizontal: 24,
+      alignSelf: "stretch",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    secondaryLabel: { color: theme.ink, fontSize: 17, fontWeight: "600" },
+    row: { flexDirection: "row", gap: 12, alignSelf: "stretch" },
+    half: { flex: 1, alignSelf: "auto" },
+    dial: {
+      backgroundColor: theme.sos,
+      borderRadius: 14,
+      minHeight: 64,
+      alignSelf: "stretch",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    dialLabel: { color: "#fff", fontSize: 20, fontWeight: "700" },
+    rung: {
+      alignSelf: "stretch",
+      flexDirection: "row",
+      gap: 12,
+      borderWidth: 1,
+      borderColor: theme.line,
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      padding: 12,
+    },
+    mark: { fontSize: 18, fontWeight: "700", width: 18, textAlign: "center" },
+    rungName: { color: theme.ink, fontSize: 15, fontWeight: "600" },
+    rungDetail: { color: theme.inkMuted, fontSize: 13, marginTop: 2, lineHeight: 18 },
+    nudge: { color: theme.warn, fontSize: 14, textAlign: "center", textDecorationLine: "underline" },
+    note: { color: theme.inkFaint, fontSize: 13, textAlign: "center" },
+    disclaimer: {
+      color: theme.inkFaint,
+      fontSize: 12,
+      textAlign: "center",
+      marginTop: "auto",
+      paddingTop: 24,
+    },
+    links: { flexDirection: "row", gap: 20, flexWrap: "wrap", justifyContent: "center" },
+    link: { color: theme.brand, fontSize: 15, paddingVertical: 10 },
+    flash: { alignItems: "center", justifyContent: "flex-end", paddingBottom: 64 },
+    flashLabel: {
+      color: "#000",
+      backgroundColor: "rgba(255,255,255,0.85)",
+      fontSize: 16,
+      fontWeight: "600",
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 10,
+      overflow: "hidden",
+    },
+  });
+}
