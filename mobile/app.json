@@ -87,7 +87,8 @@
         }
       ],
       "./plugins/with-bridgefy",
-      "./plugins/with-short-object-paths"
+      "./plugins/with-short-object-paths",
+      "./plugins/with-sos-shortcuts"
     ],
     "experiments": {
       "typedRoutes": true
