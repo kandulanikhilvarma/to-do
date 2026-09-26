@@ -19,7 +19,7 @@ Live preview: https://todu-kandula.vercel.app
 |---|---|---|
 | `web/` | Next.js site in English, Telugu and Hindi, light and dark, plus the responder console (phone sign-in, live pings, ETA sharing, evidence photos). Deployed to Vercel. | `tsc`, `eslint`, `next build` |
 | `mobile/` | Expo SDK 57 app: SOS state machine, cancel and duress PINs, offline queue, fallback ladder, siren and torch, live trail, Bluetooth relay, invites, push, who-is-coming, check-in timer, shake and fall trigger, fake call, Quick Settings tile and home widget, evidence photo, shareable incident timeline, light and dark themes, three languages. | `tsc`, `expo lint`, `expo-doctor`, 46 unit tests, release build run on an Android emulator |
-| `supabase/` | Postgres + PostGIS schema and RLS, invites, missed check-in alerts (pg_cron), private evidence storage, `sos-fanout` (push + SMS) and `sos-relay` Edge Functions. | 25 RLS tests on real Postgres, 16 fan-out and relay tests, `deno check` |
+| `supabase/` | Postgres + PostGIS schema and RLS, invites, missed check-in alerts (pg_cron), private evidence storage, `sos-fanout` (push + SMS) and `sos-relay` Edge Functions. | 26 RLS and grant tests on real Postgres, 16 fan-out and relay tests, `deno check` |
 | `docs/` | Architecture, offline ladder, permissions, threat model, source spec. | |
 
 ## Architecture
@@ -77,7 +77,7 @@ Everything below is optional; the phone runs every offline rung without it.
 
 ```bash
 supabase link --project-ref <ref>
-supabase db push                                  # migrations 0001-0006
+supabase db push                                  # migrations 0001-0009
 supabase functions deploy sos-fanout sos-relay
 supabase secrets set TODU_CONSOLE_URL=https://todu-kandula.vercel.app/dashboard   MSG91_AUTH_KEY=... MSG91_SOS_TEMPLATE_ID=... MSG91_SAFE_TEMPLATE_ID=...   MSG91_NAME_VAR=name MSG91_LINK_VAR=link          # names as in your DLT templates
 ```
@@ -107,8 +107,11 @@ Stated plainly, because a safety app that oversells itself gets someone hurt:
 - **Bluetooth relay and torch are built, not field tested.** The relay needs a
   Bridgefy licence and a second Todu phone within about 100 m; the torch relies
   on a hidden camera view and reports itself only once the camera is ready.
-- **Edge Functions are typechecked and their cores unit tested against the
-  documented Expo and MSG91 formats, but not yet deployed to a live project.**
+- **Edge Functions are deployed but have not sent a real alert yet.** Both
+  run on the live Supabase project (Mumbai) and their cores are unit tested
+  against the documented Expo and MSG91 formats. Push waits on an EAS project
+  id, SMS on DLT registration, and phone sign-in on an SMS provider in
+  Supabase Auth.
 - **Some triggers work only while Todu is open.** Shake, fall detection and
   the fake call run in the foreground: an all-day background accelerometer
   needs a foreground service that Play penalises. The Quick Settings tile

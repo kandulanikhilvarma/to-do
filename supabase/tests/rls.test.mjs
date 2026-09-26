@@ -38,12 +38,18 @@ const PRELUDE = `
   $$;
 `;
 
-// Mirrors the default privileges Supabase grants to its API roles.
+// Mirrors the default privileges Supabase grants to its API roles. Applied
+// before the migrations, as on Supabase, so a migration that revokes a grant
+// is tested with the revoke in force.
 const GRANTS = `
   grant usage on schema public, auth, realtime to anon, authenticated;
-  grant select, insert, update, delete on all tables in schema public to anon, authenticated;
-  grant usage, select on all sequences in schema public to authenticated;
-  grant execute on all functions in schema public, auth, realtime to anon, authenticated;
+  alter default privileges in schema public
+    grant select, insert, update, delete on tables to anon, authenticated;
+  alter default privileges in schema public
+    grant usage, select on sequences to authenticated;
+  alter default privileges in schema public
+    grant execute on functions to anon, authenticated;
+  grant execute on all functions in schema auth, realtime to anon, authenticated;
   grant select, insert on realtime.messages to authenticated;
   grant usage, select on all sequences in schema realtime to authenticated;
 `;
@@ -64,12 +70,12 @@ function as(uid, sql, params = [], topic = "") {
 before(async () => {
   db = await PGlite.create({ extensions: { postgis, uuid_ossp } });
   await db.exec(PRELUDE);
+  await db.exec(GRANTS);
 
   const dir = new URL("../migrations/", import.meta.url);
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
     await db.exec(readFileSync(new URL(file, dir), "utf8"));
   }
-  await db.exec(GRANTS);
 
   await db.query("insert into auth.users values ($1), ($2), ($3)", [A, B, C]);
   await db.query(
@@ -411,4 +417,26 @@ test("a missed check-in opens one SOS event; future and live ones wait", async (
   assert.deepEqual(opened.rows.map((r) => r.user_id), [C]);
   const left = await db.query("select user_id from check_ins");
   assert.deepEqual(left.rows.map((r) => r.user_id), [B]);
+});
+
+test("signed-out callers cannot reach the security definer functions", async () => {
+  const asAnon = (sql) =>
+    db.transaction(async (tx) => {
+      await tx.exec("set local role anon");
+      return tx.query(sql);
+    });
+  for (const call of [
+    "select invite_contact('+919800000000')",
+    "select * from my_circle()",
+    "select issue_relay_secret()",
+    `select * from event_responders('${eventId}')`,
+    "select request_fanout()",
+  ]) {
+    await assert.rejects(asAnon(call), /permission denied/, call);
+  }
+  // Signed in, the same functions answer; RLS still calls is_connected_to.
+  const circle = await as(A, "select * from my_circle()");
+  assert.ok(Array.isArray(circle.rows));
+  const visible = await asAnon("select count(*)::int as n from sos_events");
+  assert.equal(visible.rows[0].n, 0);
 });
